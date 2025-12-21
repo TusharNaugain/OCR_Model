@@ -2,22 +2,22 @@
     "version": 2,
     "builds": [
         {
-            "src": "backend/api.py",
+            "src": "ocr-web-app/backend/api.py",
             "use": "@vercel/python"
         },
         {
-            "src": "frontend/package.json",
+            "src": "ocr-web-app/frontend/package.json",
             "use": "@vercel/next"
         }
     ],
     "routes": [
         {
             "src": "/api/(.*)",
-            "dest": "/backend/api.py"
+            "dest": "/ocr-web-app/backend/api.py"
         },
         {
             "src": "/(.*)",
-            "dest": "/frontend/$1"
+            "dest": "/ocr-web-app/frontend/$1"
         }
     ]
 }
