@@ -1,0 +1,13 @@
+[
+  {
+    "file": "RENT-0012 (1).pdf",
+    "status": "success",
+    "extracted_text": {
+      "lines": [
+        "Sample OCR text line 1",
+        "Sample OCR text line 2"
+      ],
+      "confidence": 0.95
+    }
+  }
+]

@@ -1,0 +1,115 @@
+[
+  {
+    "file": "Screenshot 2025-12-05 at 1.50.24\u202fAM.png",
+    "status": "success",
+    "document_type": "form",
+    "classification_confidence": 0.5,
+    "extracted_text": {
+      "lines": [
+        "\u2018@ User Image",
+        "Hello, Tushar Kumar",
+        "@ Online SB Profile < STARE 2 5 UNIVERSITY Examination Form @ Mtusharkumar v Name of the Candidate: Tushar Kumar Mobile No.: 9411767413",
+        "Semester: 5th Batch: B.Tech CSE (AIML) SEM 5 2025 cd",
+        "1. Examination/Course B.Tech CSE (AIML)",
+        "2. Enrollment No 230199 Father Name Mr Anil Kumar",
+        "3. Mother Name: Mrs Nirmala",
+        "SrNo Subject Subject Code Theory/Practical Remark",
+        "1 Computer Network 0802501 Theory",
+        "2 Computational Logic 0802510 Theory",
+        "3 Multiple Programming Languages 0802505 Theory",
+        "4 Deep Learning 0802506 Both",
+        "5 Machine Learning Essentials 0802511 Theory",
+        "6 Multiple Programming Languages Lab 7717 Practical",
+        "7 Deep Learning Lab Practical",
+        "8 Machine Learning Essentials Lab Practical",
+        "5. Permanent Address : H.No.-2B,Pavri Garhwal",
+        "6. Email id : naugaintushar@gmail.com",
+        "7. State of Domicile :"
+      ],
+      "full_text": "\u2018@ User Image\nHello, Tushar Kumar\n@ Online SB Profile < STARE 2 5 UNIVERSITY Examination Form @ Mtusharkumar v Name of the Candidate: Tushar Kumar Mobile No.: 9411767413\nSemester: 5th Batch: B.Tech CSE (AIML) SEM 5 2025 cd\n1. Examination/Course B.Tech CSE (AIML)\n2. Enrollment No 230199 Father Name Mr Anil Kumar\n3. Mother Name: Mrs Nirmala\nSrNo Subject Subject Code Theory/Practical Remark\n1 Computer Network 0802501 Theory\n2 Computational Logic 0802510 Theory\n3 Multiple Programming Languages 0802505 Theory\n4 Deep Learning 0802506 Both\n5 Machine Learning Essentials 0802511 Theory\n6 Multiple Programming Languages Lab 7717 Practical\n7 Deep Learning Lab Practical\n8 Machine Learning Essentials Lab Practical\n5. Permanent Address : H.No.-2B,Pavri Garhwal\n6. Email id : naugaintushar@gmail.com\n7. State of Domicile :",
+      "confidence": 0.9005673758865248
+    },
+    "extracted_fields": {
+      "form_type": "genericform",
+      "form_number": "",
+      "form_date": "",
+      "applicant_name": "of the Candidate: Tushar Kumar Mobile No.: 9411767413",
+      "field_value_pairs": [
+        {
+          "field": "User Image",
+          "value": "Hello, Tushar Kumar"
+        },
+        {
+          "field": "Online SB Profile",
+          "value": "< STARE 2 5 UNIVERSITY Examination Form @ Mtusharkumar v Name of the Candidate: Tushar Kumar Mobile No.: 9411767413"
+        },
+        {
+          "field": "Semester",
+          "value": "5th Batch: B.Tech CSE (AIML) SEM 5 2025 cd"
+        },
+        {
+          "field": "Course",
+          "value": "B.Tech CSE (AIML)"
+        },
+        {
+          "field": "Enrollment No",
+          "value": "230199 Father Name Mr Anil Kumar"
+        },
+        {
+          "field": "Mother Name",
+          "value": "Mrs Nirmala"
+        },
+        {
+          "field": "SrNo Subject Subject Code",
+          "value": "Theory/Practical Remark"
+        },
+        {
+          "field": "Computer Network",
+          "value": "0802501 Theory"
+        },
+        {
+          "field": "Computational Logic",
+          "value": "0802510 Theory"
+        },
+        {
+          "field": "Multiple Programming Languages",
+          "value": "0802505 Theory"
+        },
+        {
+          "field": "Deep Learning",
+          "value": "0802506 Both"
+        },
+        {
+          "field": "Machine Learning Essentials",
+          "value": "0802511 Theory"
+        },
+        {
+          "field": "Multiple Programming Languages",
+          "value": "Lab 7717 Practical"
+        },
+        {
+          "field": "Deep Learning Lab Practical",
+          "value": "8 Machine Learning Essentials Lab Practical"
+        },
+        {
+          "field": "Permanent Address",
+          "value": "H.No.-2B,Pavri Garhwal"
+        },
+        {
+          "field": "Email id",
+          "value": "naugaintushar@gmail.com"
+        },
+        {
+          "field": "State of Domicile",
+          "value": ":"
+        }
+      ],
+      "checkboxes": [],
+      "signature_present": false
+    },
+    "validation": {
+      "is_valid": true,
+      "errors": []
+    }
+  }
+]

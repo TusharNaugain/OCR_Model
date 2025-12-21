@@ -1,0 +1,14 @@
+# Google Generative AI SDK (Gemini)
+google-generativeai>=0.3.0
+
+# Existing dependencies
+pymupdf
+pillow
+pytesseract
+opencv-python
+numpy
+pandas
+
+# Performance & Progress
+tqdm>=4.66.0
+multiprocessing-logging>=0.3.4

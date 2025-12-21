@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/tushar/OCR/OCR_PROJECT/ocr-web-app/backend/api.py", line 1, in <module>
+    from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+ModuleNotFoundError: No module named 'fastapi'

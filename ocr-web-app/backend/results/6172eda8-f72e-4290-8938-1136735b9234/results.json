@@ -1,0 +1,7 @@
+[
+  {
+    "file": "test_upload.txt",
+    "status": "error",
+    "error": "cannot identify image file 'uploads/6172eda8-f72e-4290-8938-1136735b9234/test_upload.txt'"
+  }
+]

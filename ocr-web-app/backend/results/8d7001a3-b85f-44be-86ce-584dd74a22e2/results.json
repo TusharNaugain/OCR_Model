@@ -1,0 +1,144 @@
+[
+  {
+    "file": "BSF-Instructions.pdf",
+    "status": "success",
+    "document_type": "form",
+    "classification_confidence": 0.38,
+    "extracted_text": {
+      "lines": [
+        "Necessary instructions regarding filling up of online",
+        "applications",
+        "1. Candidates are required to apply online through BSF website. No other means/ mode of",
+        "application will be accepted.",
+        "2. Applicants are first required to go to the BSF website www.bsf.gov.in and register themselves",
+        "by filling one-time profile or required to fill their complete information step by step. This is one-",
+        "time profile which candidates need to fill and it will be useful to candidates for all subsequent",
+        "advertisements of Border Security Force.",
+        "3. Candidates are required to have a valid Email ID and Mobile Number for registering and",
+        "creating profile.",
+        "5. Candidate should carefully fill all the information as asked in Profile and SAVE it. (save button) 6. All the candidate are required to upload the images of recent photograph, signature and",
+        "Thumb Impression.",
+        "Size of the photograph (passport size) (Max size\u201450 KB)",
+        "Size of the signature (Max size-50 KB)",
+        "Size of the Thumb Impression (Max size\u201450 KB) Other supportive document (Max size\u201450 KB) o 000 7. No Fee will be Charged for filling up the OTR (One-Time Profile). 8. After login with credentials, candidates can see active advertisements under Online",
+        "Application Link. \u2018Click Here to apply\u2019 link is available next to active advertisements after login.",
+        "9. Candidate need to click on \u2018Click Here to apply\u2019 link to apply for the post advertisement. 10. On clicking on \u2018Click Here to apply\u2019 link, system checks candidate\u2019s eligibility with respect to",
+        "eligibility criteria required for the advertisement. If candidate does not fulfil eligibility, appropriate",
+        "message of ineligibility is displayed by system.",
+        "11. Only the applications of candidate fulfilling eligibility conditions will be accepted by system. 12. Candidates must ensure all relevant fields in the application are filled before final submission,",
+        "since editing after final submission will not be possible.",
+        "13. Candidate's application will not be considered if fee is not paid for that application in the",
+        "application categories. Female candidate / Ex-serviceman / SC/ ST candidates not valid to",
+        "submit any examination fee."
+      ],
+      "full_text": "Necessary instructions regarding filling up of online\napplications\n1. Candidates are required to apply online through BSF website. No other means/ mode of\napplication will be accepted.\n2. Applicants are first required to go to the BSF website www.bsf.gov.in and register themselves\nby filling one-time profile or required to fill their complete information step by step. This is one-\ntime profile which candidates need to fill and it will be useful to candidates for all subsequent\nadvertisements of Border Security Force.\n3. Candidates are required to have a valid Email ID and Mobile Number for registering and\ncreating profile.\n5. Candidate should carefully fill all the information as asked in Profile and SAVE it. (save button) 6. All the candidate are required to upload the images of recent photograph, signature and\nThumb Impression.\nSize of the photograph (passport size) (Max size\u201450 KB)\nSize of the signature (Max size-50 KB)\nSize of the Thumb Impression (Max size\u201450 KB) Other supportive document (Max size\u201450 KB) o 000 7. No Fee will be Charged for filling up the OTR (One-Time Profile). 8. After login with credentials, candidates can see active advertisements under Online\nApplication Link. \u2018Click Here to apply\u2019 link is available next to active advertisements after login.\n9. Candidate need to click on \u2018Click Here to apply\u2019 link to apply for the post advertisement. 10. On clicking on \u2018Click Here to apply\u2019 link, system checks candidate\u2019s eligibility with respect to\neligibility criteria required for the advertisement. If candidate does not fulfil eligibility, appropriate\nmessage of ineligibility is displayed by system.\n11. Only the applications of candidate fulfilling eligibility conditions will be accepted by system. 12. Candidates must ensure all relevant fields in the application are filled before final submission,\nsince editing after final submission will not be possible.\n13. Candidate's application will not be considered if fee is not paid for that application in the\napplication categories. Female candidate / Ex-serviceman / SC/ ST candidates not valid to\nsubmit any examination fee.",
+      "confidence": 0.9492424242424242
+    },
+    "extracted_fields": {
+      "form_type": "applicationform",
+      "form_number": "",
+      "form_date": "",
+      "applicant_name": "s are first required to go to the BSF website www.bsf.gov.in and register themselves",
+      "field_value_pairs": [
+        {
+          "field": "Necessary instructions",
+          "value": "regarding filling up of online"
+        },
+        {
+          "field": "applications",
+          "value": "1. Candidates are required to apply online through BSF website. No other means/ mode of"
+        },
+        {
+          "field": "application will be",
+          "value": "accepted."
+        },
+        {
+          "field": "Applicants are first required",
+          "value": "to go to the BSF website www.bsf.gov.in and register themselves"
+        },
+        {
+          "field": "by filling",
+          "value": "one-time profile or required to fill their complete information step by step. This is one-"
+        },
+        {
+          "field": "time profile which candidates",
+          "value": "need to fill and it will be useful to candidates for all subsequent"
+        },
+        {
+          "field": "advertisements of Border",
+          "value": "Security Force."
+        },
+        {
+          "field": "Candidates are required to have",
+          "value": "a valid Email ID and Mobile Number for registering and"
+        },
+        {
+          "field": "creating",
+          "value": "profile."
+        },
+        {
+          "field": "Candidate should carefully fill",
+          "value": "all the information as asked in Profile and SAVE it. (save button) 6. All the candidate are required to upload the images of recent photograph, signature and"
+        },
+        {
+          "field": "Thumb",
+          "value": "Impression."
+        },
+        {
+          "field": "Size of the photograph",
+          "value": "(passport size) (Max size\u201450 KB)"
+        },
+        {
+          "field": "Size of the signature",
+          "value": "(Max size-50 KB)"
+        },
+        {
+          "field": "Size of the Thumb Impression",
+          "value": "(Max size\u201450 KB) Other supportive document (Max size\u201450 KB) o 000 7. No Fee will be Charged for filling up the OTR (One-Time Profile). 8. After login with credentials, candidates can see active advert"
+        },
+        {
+          "field": "isements under Online",
+          "value": "Application Link. \u2018Click Here to apply\u2019 link is available next to active advertisements after login."
+        },
+        {
+          "field": "Candidate need to click on",
+          "value": "\u2018Click Here to apply\u2019 link to apply for the post advertisement. 10. On clicking on \u2018Click Here to apply\u2019 link, system checks candidate\u2019s eligibility with respect to"
+        },
+        {
+          "field": "eligibility criteria required",
+          "value": "for the advertisement. If candidate does not fulfil eligibility, appropriate"
+        },
+        {
+          "field": "message of ineligibility is",
+          "value": "displayed by system."
+        },
+        {
+          "field": "Only the applications of",
+          "value": "candidate fulfilling eligibility conditions will be accepted by system. 12. Candidates must ensure all relevant fields in the application are filled before final submission,"
+        },
+        {
+          "field": "since editing after final",
+          "value": "submission will not be possible."
+        },
+        {
+          "field": "s application will not be",
+          "value": "considered if fee is not paid for that application in the"
+        },
+        {
+          "field": "application",
+          "value": "categories. Female candidate / Ex-serviceman / SC/ ST candidates not valid to"
+        },
+        {
+          "field": "submit any examination",
+          "value": "fee."
+        }
+      ],
+      "checkboxes": [],
+      "signature_present": true
+    },
+    "validation": {
+      "is_valid": true,
+      "errors": []
+    }
+  }
+]

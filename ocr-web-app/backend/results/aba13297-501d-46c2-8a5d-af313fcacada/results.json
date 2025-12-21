@@ -1,0 +1,27 @@
+[
+  {
+    "file": "Screenshot 2025-09-12 at 10.09.30\u202fPM.png",
+    "status": "success",
+    "document_type": "historical",
+    "classification_confidence": 0.67,
+    "extracted_text": {
+      "lines": [],
+      "full_text": "",
+      "confidence": 0.95
+    },
+    "extracted_fields": {
+      "document_type": "historicaldocument",
+      "title": "",
+      "date": "",
+      "author": "",
+      "archive_number": "",
+      "text_content": ""
+    },
+    "validation": {
+      "is_valid": false,
+      "errors": [
+        "No text content extracted"
+      ]
+    }
+  }
+]
