@@ -1,11 +1,15 @@
 #!/bin/bash
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-# Kill any existing processes on ports The ports
+# Kill any existing processes on ports
 echo "🧹 Cleaning up ports..."
-lsof -ti:8000 | xargs kill -9 2>/dev/null
-lsof -ti:3000 | xargs kill -9 2>/dev/null
-lsof -ti:3001 | xargs kill -9 2>/dev/null
+if command -v lsof >/dev/null 2>&1; then
+    lsof -ti:8000 | xargs kill -9 2>/dev/null
+    lsof -ti:3000 | xargs kill -9 2>/dev/null
+    lsof -ti:3001 | xargs kill -9 2>/dev/null
+else
+    echo "⚠️  'lsof' not found. Skipping port cleanup. If ports are in use, restart might fail."
+fi
 
 echo "🚀 Starting SmartScan OCR System..."
 
