@@ -52,12 +52,8 @@ class OCRResult(BaseModel):
     results: List[dict]
     error: Optional[str] = None
 
-# Add parent directory to path FIRST (before any OCR imports)
-import sys
-# Need to go up TWO levels: backend -> ocr-web-app -> OCR_PROJECT
-parent_dir = str(Path(__file__).parent.parent.parent)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+# Imports are now local
+
 
 # Import from lighter modules to avoid heavy dependencies
 from ocr_utils import OCR_ENGINE, get_gemini_model

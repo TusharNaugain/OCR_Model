@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Loader2, CheckCircle, XCircle, Download, ArrowLeft, FileText } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
 
 export default function ResultsPage() {
     const searchParams = useSearchParams();
