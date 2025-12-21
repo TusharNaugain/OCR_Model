@@ -1,0 +1,27 @@
+# Deployment files and temporary data
+backend/uploads/
+backend/results/
+backend/__pycache__/
+backend/document_processors/__pycache__/
+*.pyc
+__pycache__/
+
+# Test files
+tesscrate_input/
+tesscrate_output/
+tesscrate_images/
+*.png
+test_*.py
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/package-lock.json

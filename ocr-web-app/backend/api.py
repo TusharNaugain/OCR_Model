@@ -19,9 +19,13 @@ app = FastAPI(
 )
 
 # CORS configuration for frontend
+# Get allowed origins from environment variable or use defaults
+allowed_origins_str = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,46 +62,9 @@ class OCRResult(BaseModel):
 # Import from lighter modules to avoid heavy dependencies
 from ocr_utils import OCR_ENGINE, get_gemini_model
 from image_ocr import process_single_image_ocr
+from pdf_ocr import process_single_page_ocr_robust as process_single_page_ocr
 
-def process_single_page_ocr(pdf_path, page_num=1, output_dir=None, doc_handle=None):
-    """
-    Convert a PDF page to image and process with OCR.
-    Simplified version to avoid heavy imports from main.py.
-    """
-    import fitz  # PyMuPDF
-    from PIL import Image
-    import tempfile
-    
-    # Open PDF
-    should_close = doc_handle is None
-    doc = doc_handle or fitz.open(pdf_path)
-    
-    if page_num > len(doc):
-        if should_close:
-            doc.close()
-        return None
-    
-    # Convert PDF page to image
-    page = doc[page_num - 1]  # 0-indexed
-    pix = page.get_pixmap(dpi=150)
-    
-    # Save to temporary image file
-    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-        pix.save(tmp.name)
-        tmp_path = tmp.name
-    
-    if should_close:
-        doc.close()
-    
-    # Process with image OCR
-    try:
-        result = process_single_image_ocr(tmp_path, display_num=page_num, output_dir=output_dir)
-        result['page_number'] = page_num
-        return result
-    finally:
-        # Clean up temp file
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+
 
 
 def run_ocr_process(job_id: str, files: List[Path]):
@@ -176,13 +143,35 @@ def run_ocr_process(job_id: str, files: List[Path]):
                     is_pdf = file_path.suffix.lower() == '.pdf'
                     
                     if is_pdf:
-                        # For PDF, process page 1 for now
-                        ocr_res = process_single_page_ocr(
-                            str(file_path), 
-                            page_num=1, 
-                            output_dir=output_dir, 
-                            doc_handle=None
-                        )
+                        # Process ALL pages
+                        import fitz
+                        doc = fitz.open(file_path)
+                        total_pages = len(doc)
+                        doc.close()
+                        
+                        pdf_pages_results = []
+                        for pg in range(1, total_pages + 1):
+                            jobs[job_id]["message"] = f"Processing file {idx + 1}/{total_files} (Page {pg}/{total_pages})..."
+                            
+                            page_res = process_single_page_ocr(
+                                str(file_path), 
+                                page_num=pg, 
+                                output_dir=output_dir, 
+                                doc_handle=None
+                            )
+                            if page_res:
+                                pdf_pages_results.append(page_res)
+                        
+                        # Use results from Page 1 for high-level summary, but include all pages
+                        if pdf_pages_results:
+                            ocr_res = pdf_pages_results[0].copy()
+                            # Aggregate full text from all pages
+                            full_multipage_text = "\n\n".join([p.get('full_text', '') for p in pdf_pages_results])
+                            ocr_res['full_text'] = full_multipage_text
+                            ocr_res['pages'] = pdf_pages_results
+                        else:
+                             ocr_res = {'lines': [], 'full_text': '', 'confidence': 0}
+                             
                     else:
                         # For images
                         ocr_res = process_single_image_ocr(
@@ -190,22 +179,19 @@ def run_ocr_process(job_id: str, files: List[Path]):
                             display_num=idx + 1,
                             output_dir=output_dir
                         )
+                        ocr_res['pages'] = [ocr_res] # Treat image as 1-page doc
                     
-                    # Format result
-                    result = {
-                        "file": file_path.name,
-                        "status": "success",
-                        "document_type": ocr_res.get('document_type', 'unknown'),
-                        "classification_confidence": ocr_res.get('classification_confidence', 0),
-                        "extracted_text": {
-                            "lines": ocr_res.get('lines', []),
-                            "full_text": ocr_res.get('full_text', ''),
-                            "confidence": ocr_res.get('confidence', 0)
-                        },
-                        "extracted_fields": ocr_res.get('extracted_fields', {}),
-                        "validation": ocr_res.get('validation', {})
-                    }
-                    results.append(result)
+                    
+                    # Format results to match CLI output structure
+                    # USER REQUEST: Save ONLY extracted_fields per page (no wrapper)
+                    page_results = []
+                    for page_data in ocr_res.get('pages', []):
+                        # Save only the extracted fields, exactly like CLI output
+                        page_result = page_data.get('extracted_fields', {})
+                        page_results.append(page_result)
+                    
+                    # Add all page results to main results
+                    results.extend(page_results)
                     
                 except Exception as e:
                     print(f"Error processing file {file_path}: {e}")
@@ -218,7 +204,7 @@ def run_ocr_process(job_id: str, files: List[Path]):
         # Save results
         result_file = output_dir / "results.json"
         with open(result_file, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
+            json.dump(results, f, indent=2, default=str, ensure_ascii=False)
         
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["progress"] = 100

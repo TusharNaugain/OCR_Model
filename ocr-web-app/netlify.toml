@@ -1,0 +1,26 @@
+[build]
+  # Build command for Next.js static export
+  command = "cd frontend && npm install && npm run build"
+  
+  # Output directory for static files
+  publish = "frontend/out"
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "18"
+
+# Redirects for SPA routing (if needed)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+  conditions = {Role = ["admin"]}
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"
