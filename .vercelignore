@@ -1,0 +1,9 @@
+ocr-web-app/backend/uploads
+ocr-web-app/backend/results
+ocr-web-app/backend/__pycache__
+ocr-web-app/backend/**/*.pyc
+**/.DS_Store
+.git
+.env
+.venv
+venv
