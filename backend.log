@@ -1,4 +1,137 @@
-Traceback (most recent call last):
-  File "/Users/tushar/OCR/OCR_PROJECT/ocr-web-app/backend/api.py", line 1, in <module>
-    from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-ModuleNotFoundError: No module named 'fastapi'
+/Users/tushar/OCR/OCR_PROJECT/OCR_Model/ocr-web-app/backend/ocr_utils.py:6: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Will watch for changes in these directories: ['/Users/tushar/OCR/OCR_PROJECT/OCR_Model/ocr-web-app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [46361] using StatReload
+/Users/tushar/OCR/OCR_PROJECT/OCR_Model/ocr-web-app/backend/ocr_utils.py:6: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [46368]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:56539 - "POST /api/ocr/upload HTTP/1.1" 200 OK
+
+🔍 [RobustOCR] Processing Page 1...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_1_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+      ✅ [High-DPI Merge]: AR Certificate Nos” ING 55594064084620% aerGee AE BO
+
+🔍 [RobustOCR] Processing Page 2...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_2_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+
+🔍 [RobustOCR] Processing Page 3...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_3_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+
+🔍 [RobustOCR] Processing Page 4...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_4_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+
+🔍 [RobustOCR] Processing Page 5...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_5_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+
+🔍 [RobustOCR] Processing Page 6...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_6_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+      ✅ [High-DPI Merge]: Usmeba: 2 Certificate Issued Dates... 222.0 IM NOTsDec-2025)04 4122 PM AW SES La Se SSB RES GEREN
+
+🔍 [RobustOCR] Processing Page 7...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_7_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+
+🔍 [RobustOCR] Processing Page 8...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_8_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+
+🔍 [RobustOCR] Processing Page 9...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_9_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+      ✅ [High-DPI Merge]: oe. IN Certificate of Stamp Duty: 0c. « /NSS8SO
+      ✅ [High-DPI Merge]: “foi, Certificate Noe". "ING J55533508801330X © aq ead
+      ✅ [High-DPI Merge]: wee h@s. 2 --Certificate Issued Dates .° 222.2 NOS =Dec-2025\04 AAEP ME NSSESS ts Ga S_gegSe dP SES Eo So
+
+🔍 [RobustOCR] Processing Page 10...
+   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+   📄 [RobustOCR] Converting full page an preprocessing...
+   🐛 DEBUG: Saved preprocessed page to results/357921e3-e385-4a80-8061-57f825042a10/debug_page_10_prep_backend.png
+   🔤 [RobustOCR] Running Tesseract OCR...
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56539 - "GET /api/ocr/results/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56555 - "GET /api/ocr/status/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56555 - "GET /api/ocr/results/357921e3-e385-4a80-8061-57f825042a10 HTTP/1.1" 200 OK

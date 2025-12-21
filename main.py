@@ -496,6 +496,17 @@ def process_single_page_ocr(pdf_path, page_num, output_dir, doc_handle=None):
     
     img_processed = Image.fromarray(img_np)
     
+    # DEBUG: Save preprocessed image to verify grayscaling
+    if output_dir:
+        try:
+            # Create debug filename
+            debug_fname = f"debug_page_{page_num}_prep.png"
+            debug_path = Path(output_dir) / debug_fname
+            img_processed.save(debug_path)
+            print(f"   🐛 DEBUG: Saved preprocessed page to {debug_path}")
+        except Exception as e:
+            print(f"   ⚠️ Could not save debug image: {e}")
+    
     # ========== OCR ENGINE SELECTION ==========
     # Always use Tesseract for base OCR (fast and reliable)
     print(f"   🔤 Running Tesseract OCR...")
@@ -752,7 +763,82 @@ def extract_fields_from_text(text, lines):
     
     fields = {}
     
+    # === NEW: Specific Key-Value Extraction (Right-side) ===
+    fields_to_extract = [
+        "Certificate No.",
+        "Certificate Issued Date",
+        "Account Reference",
+        "Unique Doc. Reference",
+        "Purchased by",
+        "Description of Document",
+        "Description",
+        "Consideration Price (Rs.) First Party",
+        "Second Party",
+        "Stamp Duty Paid By"
+    ]
+    
+    # Sort keys by length descending
+    fields_to_extract.sort(key=len, reverse=True)
+    
+    def clean_val(v):
+        return v.strip().lstrip(':').replace('|', '').strip()
+
+    for i, line in enumerate(lines):
+        for key in fields_to_extract:
+            if key.lower() in line.lower():
+                # Normalize key to snake_case
+                json_key = key.lower().replace('.', '').replace(' ', '_').replace('(', '').replace(')', '')
+                
+                # Avoid overwriting if we already found a good value
+                if json_key in fields and len(fields[json_key]) > 5:
+                    continue
+
+                value_found = ""
+                
+                # 1. Try Same Line
+                pattern = re.compile(re.escape(key), re.IGNORECASE)
+                match = pattern.search(line)
+                if match:
+                    same_line_val = line[match.end():].strip()
+                    # If it's a date field, look for date pattern specifically
+                    if "date" in json_key:
+                        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', same_line_val)
+                        if date_match:
+                            value_found = date_match.group(1)
+                    else:
+                        value_found = clean_val(same_line_val)
+                        if "of document" in value_found.lower(): value_found = ""
+
+                # 2. Try Next Line (if strictly empty or looks like noise)
+                # Heuristic: If value is empty OR (it's a date field and we didn't find a date)
+                should_check_next = not value_found
+                if "date" in json_key and not re.search(r'\d{2}-[A-Za-z]{3}-\d{4}', value_found):
+                    should_check_next = True
+                    
+                if should_check_next and i + 1 < len(lines):
+                    next_line = lines[i+1].strip()
+                    # Determine if next line is a separate key or the value
+                    # If next line contains one of our other keys, it's not the value.
+                    is_next_line_key = any(k.lower() in next_line.lower() for k in fields_to_extract)
+                    
+                    if not is_next_line_key:
+                        if "date" in json_key:
+                            date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', next_line)
+                            if date_match:
+                                value_found = date_match.group(1)
+                        else:
+                            # For non-dates, assume next line is the value if reasonably short
+                            # Fix for Stamp Duty Paid By consuming Stamp Duty Amount line
+                            if "stamp duty amount" in next_line.lower():
+                                value_found = ""
+                            else:
+                                value_found = clean_val(next_line)
+                
+                if value_found:
+                    fields[json_key] = value_found
+
     # ========== CERTIFICATE NUMBER (Enhanced - Multi-State Support) ==========
+    # (Keep existing logic as fallback/enhancement)
     
     # Strategy 1: Delhi format - Find ALL matches and pick the correct one
     # Delhi e-stamp certificates typically start with IN-DL89055 or IN-DL89056
@@ -1714,11 +1800,15 @@ def main():
     print("   2. Gemini-Enhanced (Intelligent AI Correction, FREE tier!)")
     print("      ⚡ 1,500 pages/day FREE with Gemini 2.5 Flash")
     
-    while True:
-        engine_choice = input("\nEnter choice (1/2) [Default: 2]: ").strip() or "2"
-        if engine_choice in ["1", "2"]:
-            break
-        print("❌ Invalid choice. Please enter 1 or 2.")
+    if os.environ.get("OCR_MODE"):
+        engine_choice = os.environ.get("OCR_MODE")
+        print(f"\n🤖 Auto-selected mode from env: {engine_choice}")
+    else:
+        while True:
+            engine_choice = input("\nEnter choice (1/2) [Default: 2]: ").strip() or "2"
+            if engine_choice in ["1", "2"]:
+                break
+            print("❌ Invalid choice. Please enter 1 or 2.")
     
     # Set OCR engine
     global OCR_ENGINE
@@ -2039,8 +2129,9 @@ def main():
                 "match_score": csv_match.get('score', 0)
             }
         
-        with open(output_file, 'w') as f:
-            json.dump(page_result, f, indent=2, default=str)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            # USER REQUEST: Save ONLY extracted fields key-value pairs
+            json.dump(page_result.get('extracted_fields', {}), f, indent=2, ensure_ascii=False)
         
         # === TRACK SEEN CERTIFICATES (DUPLICATE GUARD) ===
         # Add the FINAL accepted certificate (after all fallbacks/fixes)

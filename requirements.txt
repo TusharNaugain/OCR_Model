@@ -11,3 +11,6 @@ opencv-python-headless
 # Performance & Progress
 tqdm>=4.66.0
 multiprocessing-logging>=0.3.4
+fastapi
+uvicorn
+python-multipart

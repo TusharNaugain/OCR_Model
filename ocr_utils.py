@@ -90,7 +90,66 @@ def fix_character_confusion(text):
         
         text = text.replace(cert_match.group(0), prefix + number_part)
     
+    # Apply general cleanup for dirty scans
+    text = clean_ocr_noise(text)
+    
     return text
+
+def clean_ocr_noise(text):
+    """
+    Clean up specific OCR noise and common misreadings.
+    Targeted for dirty document scans.
+    """
+    if not text:
+        return text
+
+    # 1. Fix common word corruptions
+    replacements = {
+        r'\bStock Hotding\b': 'Stock Holding',
+        r'\bAcetate Meta AiR\b': 'Certificate', # Heuristic guess based on context, or just remove
+        r'\bAccount Reterence\b': 'Account Reference',
+        r'\bUniaue Doe\b': 'Unique Doc',
+        r'\bCompetent\b': 'Competent Authority',
+    }
+    
+    for pattern, replacement in replacements.items():
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+    # 2. Fix Date Confusions (e.g. 81-Dec -> 31-Dec)
+    # Pattern: Digit-Digit-Month-Year where first digit might be 8/9/S instead of 3/0/1
+    def fix_date_match(match):
+        day_part = match.group(1)
+        month_part = match.group(2)
+        year_part = match.group(3)
+        
+        # Logically fix day
+        if day_part.startswith('8'): day_part = '3' + day_part[1:]
+        if day_part == '00': day_part = '01'
+        
+        return f"{day_part}-{month_part}-{year_part}"
+
+    text = re.sub(r'\b(\d{2})-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})\b', fix_date_match, text, flags=re.IGNORECASE)
+
+    # 3. Remove "Salt and Pepper" Noise
+    # Remove lines that are just random short garbage
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        # Remove specific artifacts
+        line = line.replace('=>.', '').strip()
+        
+        # Skip lines that are just symbols or very short random text
+        if not line:
+             continue
+        if re.match(r'^[\W\s]+$', line): # Only symbols
+            continue
+        if len(line) < 3 and not line.isalnum():
+            continue
+            
+        cleaned_lines.append(line)
+        
+    return '\n'.join(cleaned_lines)
+
 
 def enhance_ocr_with_gemini(raw_text, lines, document_type="stamp_duty_certificate"):
     """

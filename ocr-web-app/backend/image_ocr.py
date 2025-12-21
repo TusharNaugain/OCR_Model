@@ -45,6 +45,15 @@ def process_single_image_ocr(image_path, display_num=None, output_dir=None):
         img_processed = img.convert('L')
         img_processed = ImageEnhance.Contrast(img_processed).enhance(1.5)
     
+    # DEBUG: Save preprocessed image to verify grayscaling
+    if output_dir:
+        try:
+            debug_path = Path(output_dir) / f"debug_prep_{Path(image_path).name}"
+            img_processed.save(debug_path)
+            print(f"   🐛 DEBUG: Saved preprocessed image to {debug_path}")
+        except Exception as e:
+            print(f"   ⚠️ Could not save debug image: {e}")
+    
     # Run Tesseract OCR
     print(f"   🔤 Running Tesseract OCR...")
     ocr_data = pytesseract.image_to_data(img_processed, output_type=Output.DICT)
