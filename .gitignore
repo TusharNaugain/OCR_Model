@@ -1,1 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+backend.log
+
+# OCR Processing directories
+tesscrate_images/
+tesscrate_input/
+tesscrate_output/
+Input/
+Output/
+Archive/
+Processing/
+Manual_ROI_Input/
+
+# Backend runtime directories
+ocr-web-app/backend/uploads/
+ocr-web-app/backend/results/
+
+# Frontend
+ocr-web-app/frontend/node_modules/
+ocr-web-app/frontend/.next/
+ocr-web-app/frontend/out/
+ocr-web-app/frontend/.env.local
+ocr-web-app/frontend/.env.development.local
+ocr-web-app/frontend/.env.test.local
+ocr-web-app/frontend/.env.production.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+test_*.py
+tests/
+
+# OS
+.DS_Store
+Thumbs.db

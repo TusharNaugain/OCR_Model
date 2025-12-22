@@ -1,9 +1,52 @@
-ocr-web-app/backend/uploads
-ocr-web-app/backend/results
-ocr-web-app/backend/__pycache__
+# Root level files not needed for web app
+main.py
+document_classifier.py
+document_processors/
+parallel_processor.py
+image_ocr.py
+ocr_utils.py
+test_*.py
+tests/
+debug_imports.py
+test_system.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Input/Output directories
+tesscrate_images/
+tesscrate_input/
+tesscrate_output/
+Input/
+Output/
+Archive/
+Processing/
+Manual_ROI_Input/
+
+# Backend uploads and results
+ocr-web-app/backend/uploads/
+ocr-web-app/backend/results/
+ocr-web-app/backend/__pycache__/
 ocr-web-app/backend/**/*.pyc
-**/.DS_Store
-.git
+
+# Frontend build artifacts
+ocr-web-app/frontend/node_modules/
+ocr-web-app/frontend/.next/
+ocr-web-app/frontend/out/
+
+# Development files
+.git/
 .env
-.venv
-venv
+.venv/
+venv/
+**/.DS_Store
+*.log
+README.md
+FILE_GUIDE.md
+JSON_FORMAT.md
+STARTUP_GUIDE.md
+.gitignore
+run_ocr.sh
+start_app.sh
+backend.log
