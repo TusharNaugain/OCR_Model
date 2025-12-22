@@ -1,15 +1,5 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "ocr-web-app/frontend/package.json",
-            "use": "@vercel/next"
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "/ocr-web-app/frontend/$1"
-        }
-    ]
+    "buildCommand": "cd ocr-web-app/frontend && npm run build",
+    "outputDirectory": "ocr-web-app/frontend/out",
+    "installCommand": "cd ocr-web-app/frontend && npm install"
 }
