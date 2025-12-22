@@ -4,7 +4,7 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "./build.sh && pip install -r requirements.txt"
     startCommand: "uvicorn api:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
@@ -14,6 +14,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: ALLOWED_ORIGINS
-        value: https://your-frontend.vercel.app,http://localhost:3000
+        value: https://ocr-m6761xzyo-tusharnaugains-projects.vercel.app,http://localhost:3000
     healthCheckPath: /
+
 
