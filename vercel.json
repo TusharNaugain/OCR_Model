@@ -2,23 +2,11 @@
     "version": 2,
     "builds": [
         {
-            "src": "ocr-web-app/backend/api.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxLambdaSize": "250mb",
-                "includeFiles": "ocr-web-app/backend/**"
-            }
-        },
-        {
             "src": "ocr-web-app/frontend/package.json",
             "use": "@vercel/next"
         }
     ],
     "routes": [
-        {
-            "src": "/api/(.*)",
-            "dest": "/ocr-web-app/backend/api.py"
-        },
         {
             "src": "/(.*)",
             "dest": "/ocr-web-app/frontend/$1"
