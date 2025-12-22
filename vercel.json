@@ -1,5 +1,6 @@
 {
-    "buildCommand": "cd ocr-web-app/frontend && npm run build",
-    "outputDirectory": "ocr-web-app/frontend/out",
-    "installCommand": "cd ocr-web-app/frontend && npm install"
+    "framework": "nextjs",
+    "buildCommand": "npm run build",
+    "installCommand": "npm install",
+    "outputDirectory": "out"
 }
