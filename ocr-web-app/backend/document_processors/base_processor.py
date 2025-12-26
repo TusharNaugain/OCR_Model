@@ -10,7 +10,7 @@ Provides common preprocessing utilities and interface definition.
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Any, Optional, Tuple
-import cv2
+# import cv2  <-- Moved inside functions
 import numpy as np
 from PIL import Image
 import logging
@@ -97,6 +97,7 @@ class BaseDocumentProcessor(ABC):
         try:
             # Convert to grayscale if needed
             if len(image.shape) == 3:
+                import cv2
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             else:
                 gray = image.copy()
@@ -155,6 +156,7 @@ class BaseDocumentProcessor(ABC):
                 h = 10
             
             if len(image.shape) == 3:
+                import cv2
                 denoised = cv2.fastNlMeansDenoisingColored(image, None, h, h, 7, 21)
             else:
                 denoised = cv2.fastNlMeansDenoising(image, None, h, 7, 21)
@@ -179,6 +181,7 @@ class BaseDocumentProcessor(ABC):
         try:
             # Convert to grayscale if needed
             if len(image.shape) == 3:
+                import cv2
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             else:
                 gray = image.copy()
@@ -217,6 +220,7 @@ class BaseDocumentProcessor(ABC):
             kernel = np.array([[-1,-1,-1],
                              [-1, 9,-1],
                              [-1,-1,-1]])
+            import cv2
             sharpened = cv2.filter2D(image, -1, kernel)
             return sharpened
             
