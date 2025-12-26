@@ -27,5 +27,8 @@ RUN mkdir -p uploads results
 # Expose the port
 EXPOSE 8000
 
+# Verify files are present (for debugging)
+RUN ls -la /app && echo "Current directory contents above"
+
 # Run the application
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
