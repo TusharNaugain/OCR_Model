@@ -27,13 +27,17 @@ RUN mkdir -p uploads results
 # Expose the port
 EXPOSE 8000
 
-# Create a startup script to debug runtime state
+# Create a robust startup script
 RUN echo '#!/bin/bash\n\
-echo "=== DEBUG INFO ==="\n\
-pwd\n\
-ls -la\n\
-echo "=== END DEBUG ===\n"\n\
-exec uvicorn api:app --host 0.0.0.0 --port 8000' > /start.sh && chmod +x /start.sh
+    echo "=== SEARCHING FOR APP === "\n\
+    find / -name "api.py" 2>/dev/null\n\
+    APP_DIR=$(dirname $(find /app -name "api.py" -print -quit))\n\
+    echo "Found app in: $APP_DIR"\n\
+    cd $APP_DIR\n\
+    echo "=== CONTENTS === "\n\
+    ls -la\n\
+    echo "=== STARTING === "\n\
+    exec uvicorn api:app --host 0.0.0.0 --port 8000' > /run.sh && chmod +x /run.sh
 
-# Run the application using the script
-CMD ["/start.sh"]
+# Run the application
+CMD ["/run.sh"]
