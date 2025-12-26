@@ -1,13 +1,12 @@
-
 import os
 import re
-import cv2
+# import cv2  <-- Moved inside functions
 import fitz  # PyMuPDF
 import numpy as np
-import pytesseract
+# import pytesseract <-- Moved inside functions
 from PIL import Image, ImageEnhance, ImageOps
 from pathlib import Path
-from pytesseract import Output
+# from pytesseract import Output <-- Moved inside functions
 from ocr_utils import OCR_ENGINE, GEMINI_API_KEY, fix_character_confusion, enhance_ocr_with_gemini
 
 # Global flags (can be tuned via env vars in the future)
@@ -19,6 +18,7 @@ def enhance_image_for_digits(img):
     Specific enhancement for digit recognition (used in header scan).
     """
     # Convert PIL to numpy
+    import cv2
     img_np = np.array(img.convert('L'))
     
     # Method 1: Adaptive Threshold with denoise
@@ -46,6 +46,7 @@ def find_certificate_cv(pil_img):
     Returns a list of cropped PIL images of candidate regions.
     """
     # Convert PIL to CV2
+    import cv2
     img_cv = np.array(pil_img)
     
     # Handle Grayscale vs RGB
@@ -102,6 +103,9 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
     
     Returns standard result dictionary.
     """
+    import cv2
+    import pytesseract
+    from pytesseract import Output
     print(f"\n🔍 [RobustOCR] Processing Page {page_num}...")
     
     # Open PDF and get page

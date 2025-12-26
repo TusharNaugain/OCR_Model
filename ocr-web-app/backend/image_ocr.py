@@ -5,9 +5,9 @@ def process_single_image_ocr(image_path, display_num=None, output_dir=None):
     """
     from pathlib import Path
     from PIL import Image, ImageEnhance
-    import pytesseract
-    from pytesseract import Output
-    import cv2
+    # import pytesseract <-- Moved inside functions
+    # from pytesseract import Output <-- Moved inside functions
+    # import cv2 <-- Moved inside functions
     import numpy as np
     from ocr_utils import (
         OCR_ENGINE, 
@@ -35,6 +35,7 @@ def process_single_image_ocr(image_path, display_num=None, output_dir=None):
     
     # Advanced Preprocessing with OpenCV
     print(f"   🖼️  Applying advanced preprocessing...")
+    import cv2
     cv_img = cv2.imread(image_path)
     if cv_img is not None:
         processed_cv = preprocess_image_cv2(cv_img)
@@ -56,6 +57,8 @@ def process_single_image_ocr(image_path, display_num=None, output_dir=None):
     
     # Run Tesseract OCR
     print(f"   🔤 Running Tesseract OCR...")
+    import pytesseract
+    from pytesseract import Output
     ocr_data = pytesseract.image_to_data(img_processed, output_type=Output.DICT)
     
     # Extract text lines
