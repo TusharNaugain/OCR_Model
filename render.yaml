@@ -2,10 +2,10 @@ services:
   - type: web
     name: ocr-backend
     env: docker
+    dockerfilePath: ./ocr-web-app/backend/Dockerfile
+    dockerContext: ./ocr-web-app/backend
     region: oregon
     plan: free
-    rootDir: ocr-web-app/backend
-    dockerContext: ocr-web-app/backend
     envVars:
       - key: PORT
         value: 8000
