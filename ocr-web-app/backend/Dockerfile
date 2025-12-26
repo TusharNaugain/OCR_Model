@@ -27,8 +27,13 @@ RUN mkdir -p uploads results
 # Expose the port
 EXPOSE 8000
 
-# Verify files are present (for debugging)
-RUN ls -la /app && echo "Current directory contents above"
+# Create a startup script to debug runtime state
+RUN echo '#!/bin/bash\n\
+echo "=== DEBUG INFO ==="\n\
+pwd\n\
+ls -la\n\
+echo "=== END DEBUG ===\n"\n\
+exec uvicorn api:app --host 0.0.0.0 --port 8000' > /start.sh && chmod +x /start.sh
 
-# Run the application
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application using the script
+CMD ["/start.sh"]
