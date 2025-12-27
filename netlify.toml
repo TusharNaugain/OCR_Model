@@ -1,0 +1,27 @@
+[build]
+  # Build command for Next.js static export
+  command = "cd ocr-web-app/frontend && npm install && npm run build"
+  
+  # Output directory for static files
+  publish = "ocr-web-app/frontend/out"
+
+[build.environment]
+  # Node version
+  NODE_VERSION = "20"
+  # Default API URL (can be overridden in Netlify Dashboard)
+  NEXT_PUBLIC_API_URL = "https://your-render-backend-url.onrender.com"
+
+# Redirects for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"

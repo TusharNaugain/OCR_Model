@@ -306,7 +306,7 @@ class BaseDocumentProcessor(ABC):
         value = ' '.join(value.split())
         
         # Remove common OCR artifacts
-        value = value.replace('|', 'I').replace('_', '')
+        value = value.replace('|', 'I')
         
         return value.strip()
     

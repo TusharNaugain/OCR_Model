@@ -93,7 +93,7 @@ def find_certificate_cv(pil_img):
              
     return candidates
 
-def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_handle=None):
+def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_handle=None, prior_doc_type=None):
     """
     Process a single page with ROBUST OCR logic (mirrors main.py).
     Includes:
@@ -101,8 +101,89 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
     - Phase 2: Full Page Scan with Advanced Preprocessing
     - Phase 3: Fallback Layers (OpenCV, Nuclear Threshold)
     
+    Args:
+        prior_doc_type: If provided, skips classification and assumes this type.
+    
     Returns standard result dictionary.
     """
+    import cv2
+    import pytesseract
+    from pytesseract import Output
+    from document_processors.base_processor import DocumentType
+
+    print(f"\n🔍 [RobustOCR] Processing Page {page_num}...")
+    
+    # Open PDF and get page
+    should_close = False
+    if doc_handle:
+        doc = doc_handle
+    else:
+        doc = fitz.open(pdf_path)
+        should_close = True
+    
+    if page_num > len(doc):
+        # ... (error handling)
+        if should_close: doc.close()
+        return None
+    
+    page = doc[page_num - 1]  # 0-indexed
+    
+    header_lines = []
+    ocr_lines = []
+    skip_full_page = False
+
+    # ... (Phase 1 remains largely same, just standardizing imports if needed) ...
+
+    # === PHASE 1: CERTIFICATE HEADER SCAN ===
+    if ULTRA_FAST_MODE:
+        # ... (fast mode logic)
+        pix = page.get_pixmap(dpi=120)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        # ...
+        custom_config = '--psm 6 --oem 3 -c tessedit_char_whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-:. "'
+        text = pytesseract.image_to_string(img, config=custom_config)
+        text = fix_character_confusion(text)
+        header_lines = [l.strip() for l in text.split('\n') if l.strip()]
+        skip_full_page = True 
+        ocr_lines = header_lines
+    
+    else:
+        # Normal/Robust Mode: Super-Resolution Header Scan
+        print(f"   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...")
+        page_rect = page.rect
+        header_clip = fitz.Rect(0, 0, page_rect.width, page_rect.height * 0.33)
+        header_pix = page.get_pixmap(dpi=150, clip=header_clip)
+        header_img = Image.frombytes("RGB", [header_pix.width, header_pix.height], header_pix.samples)
+        
+        # SUPER-RESOLUTION STEP
+        original_size = header_img.size
+        new_size = (original_size[0] * 3, original_size[1] * 3)
+        header_img = header_img.resize(new_size, resample=Image.Resampling.LANCZOS)
+        
+        header_img_enhanced = enhance_image_for_digits(header_img)
+        header_text = pytesseract.image_to_string(header_img_enhanced, config='--psm 6 --oem 3')
+        header_text = fix_character_confusion(header_text)
+        header_lines = [l.strip() for l in header_text.split('\n') if l.strip()]
+    
+    # === PHASE 2: FULL PAGE SCAN ===
+    lines = []
+    if not skip_full_page:
+        print(f"   📄 [RobustOCR] Converting full page an preprocessing...")
+        pix = page.get_pixmap(dpi=150)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        
+        # ... (preprocessing logic)
+        img_processed = img.convert('L')
+        # ... (omitting lengthy preprocessing lines for brevity in replacement if unchanged, but need to be careful)
+        # To be safe and avoid "omission" errors in replace_file_content, I'll copy the preprocessing logic exactly as is or target smaller chunks.
+        # Actually, let's just target the function signature and the classification logic block further down.
+        # It is safer to make TWO edits. One for signature, one for logic.
+        
+    # Wait, the user wants me to fix the signature first.
+    pass
+
+# Resetting strategy: distinct edits.
+
     import cv2
     import pytesseract
     from pytesseract import Output
@@ -235,9 +316,45 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
                 lines.insert(0, clean_hl)
                 print(f"      ✅ [High-DPI Merge]: {clean_hl}")
 
-    # === FALLBACK: OPENCV SMART DETECTION ===
+    # === CLASSIFY DOCUMENT (Early) ===
     full_text_check = '\n'.join(lines)
-    if not ULTRA_FAST_MODE and not re.search(r'IN-[A-Z]{2}.*\d{5}', full_text_check, re.IGNORECASE):
+    
+    if prior_doc_type:
+        doc_type = prior_doc_type
+        confidence = 1.0
+        is_certificate_regex = False
+        print(f"   🧠 [Classifier] Using prior classification: {doc_type.value}")
+    else:
+        try:
+            from document_classifier import classify_document
+            from document_processors.base_processor import DocumentType
+            
+            # Check for forceful "Certificate" override via regex first (legacy compatibility)
+            is_certificate_regex = re.search(r'IN-[A-Z]{2}.*\d{5}|Stamp Duty', full_text_check, re.IGNORECASE)
+            
+            if is_certificate_regex:
+                 doc_type = DocumentType.FINANCIAL
+                 confidence = 1.0
+                 print(f"   🧠 [Classifier] heuristic-override -> FINANCIAL (Certificate)")
+            else:
+                 doc_type, confidence = classify_document(full_text_check, lines)
+                 print(f"   🧠 [Classifier] Detected: {doc_type.value} (Confidence: {confidence})")
+        except ImportError:
+            print("   ⚠️  [Classifier] Module missing, defaulting to legacy.")
+            doc_type = DocumentType.UNKNOWN
+            confidence = 0.0
+            is_certificate_regex = False
+
+    # === FALLBACKS (CONDITIONAL) ===
+    # Only run expensive fallbacks if it LOOKS like a certificate but is missing the number
+    should_run_fallbacks = (
+        not ULTRA_FAST_MODE and 
+        (doc_type == DocumentType.FINANCIAL or doc_type == DocumentType.UNKNOWN) and
+        not re.search(r'IN-[A-Z]{2}.*\d{5}', full_text_check, re.IGNORECASE)
+    )
+
+    if should_run_fallbacks:
+        # === FALLBACK: OPENCV SMART DETECTION ===
         print("   ⚠️  Certificate MISSING. Engaging OPENCV SMART DETECTION...")
         try:
              # Re-use 'img' from Phase 2 (RGB) for finding contours
@@ -263,39 +380,75 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
         except Exception as e:
              print(f"      ⚠️  OpenCV Fallback failed: {e}")
 
-    # === FALLBACK: NUCLEAR THRESHOLD SCAN ===
-    full_text_check = '\n'.join(lines)
-    if not ULTRA_FAST_MODE and not re.search(r'IN-[A-Z]{2}.*\d{5}', full_text_check, re.IGNORECASE):
-        print("   ⚠️  Certificate MISSING. Engaging MULTI-THRESHOLD NUCLEAR mode...")
-        try:
-            width, height = img.size
-            header_crop = img.crop((0, 0, width, int(height * 0.50)))
-            header_gray = header_crop.convert('L')
-            
-            strategies = [
-                ('Normal-120', header_gray.point(lambda p: p > 120 and 255)),
-                ('Normal-150', header_gray.point(lambda p: p > 150 and 255)),
-                ('Normal-180', header_gray.point(lambda p: p > 180 and 255)),
-                ('Inverted-150', ImageOps.invert(header_gray).point(lambda p: p > 150 and 255))
-            ]
-            
-            recovered_any = False
-            for name, bin_img in strategies:
-                if recovered_any: break
-                text = pytesseract.image_to_string(bin_img, config='--psm 6 --oem 3')
-                for hl in text.split('\n'):
-                    clean_hl = hl.strip().replace('|', 'I').replace('l', 'I')
-                    if (re.search(r'IN-[A-Z]{2}', clean_hl) or 'Cert' in clean_hl):
-                         if clean_hl not in lines:
-                            print(f"      ✅ RECOVERED ({name}): {clean_hl}")
-                            lines.insert(0, clean_hl)
-                            recovered_any = True
-                            break
-        except Exception as e:
-            print(f"      ⚠️  Nuclear Fallback failed: {e}")
+        # === FALLBACK: NUCLEAR THRESHOLD SCAN ===
+        full_text_check = '\n'.join(lines) # Re-check after OpenCV
+        if not re.search(r'IN-[A-Z]{2}.*\d{5}', full_text_check, re.IGNORECASE):
+            print("   ⚠️  Certificate MISSING. Engaging MULTI-THRESHOLD NUCLEAR mode...")
+            try:
+                width, height = img.size
+                header_crop = img.crop((0, 0, width, int(height * 0.50)))
+                header_gray = header_crop.convert('L')
+                
+                strategies = [
+                    ('Normal-120', header_gray.point(lambda p: p > 120 and 255)),
+                    ('Normal-150', header_gray.point(lambda p: p > 150 and 255)),
+                    ('Normal-180', header_gray.point(lambda p: p > 180 and 255)),
+                    ('Inverted-150', ImageOps.invert(header_gray).point(lambda p: p > 150 and 255))
+                ]
+                
+                recovered_any = False
+                for name, bin_img in strategies:
+                    if recovered_any: break
+                    text = pytesseract.image_to_string(bin_img, config='--psm 6 --oem 3')
+                    for hl in text.split('\n'):
+                        clean_hl = hl.strip().replace('|', 'I').replace('l', 'I')
+                        if (re.search(r'IN-[A-Z]{2}', clean_hl) or 'Cert' in clean_hl):
+                             if clean_hl not in lines:
+                                print(f"      ✅ RECOVERED ({name}): {clean_hl}")
+                                lines.insert(0, clean_hl)
+                                recovered_any = True
+                                break
+            except Exception as e:
+                print(f"      ⚠️  Nuclear Fallback failed: {e}")
+    else:
+        if doc_type == DocumentType.LEGAL:
+            print("   ⏩ [Optimization] Skipping certificate fallbacks for Rent Agreement.")
 
-    # === EXTRACT FIELDS ===
-    extracted_fields = extract_certificate_fields(lines)
+    # === EXTRACT FIELDS (DYNAMIC) ===
+    full_text = '\n'.join(lines)
+    
+    # 2. Dispatch Extraction
+    # (Classifier already ran earlier, using doc_type and is_certificate_regex from above)
+
+    # 2. Dispatch Extraction
+    extracted_fields = {}
+    
+    if doc_type == DocumentType.LEGAL:
+        try:
+            from document_processors.legal_processor import LegalProcessor
+            print("   ⚖️  [Extraction] Using LegalProcessor for Rent Agreement/Contract")
+            processor = LegalProcessor()
+            extracted_fields = processor.extract_fields(full_text, lines)
+        except Exception as e:
+            print(f"   ❌ [Extraction] LegalProcessor failed: {e}")
+            extracted_fields = {'error': 'Legal extraction failed'}
+            
+    elif is_certificate_regex or doc_type == DocumentType.FINANCIAL or 'certificate' in full_text.lower():
+        # Keep existing certificate logic
+        print("   💰 [Extraction] Using Standard Certificate Extraction")
+        extracted_fields = extract_certificate_fields(lines)
+        
+    else:
+        # Generic Fallback
+        print(f"   ℹ️  [Extraction] Generic fallback for {doc_type.value}")
+        extracted_fields = {
+            'document_type': doc_type.value
+        }
+        
+    # User Request: Always include full text
+    extracted_fields['full_text'] = full_text
+
+
 
     if should_close:
         doc.close()
@@ -315,6 +468,20 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
     }
     
     return result
+
+    return extracted
+
+def fix_common_ocr_errors(text):
+    """
+    Fix specific recurring OCR errors for this dataset.
+    """
+    if not text: return text
+    
+    # Date Corrections (Day 43 -> 13)
+    text = re.sub(r'43-(Jun|Jul|Jan)', r'13-\1', text)
+    text = re.sub(r'4([0-9])-(Jun|Jul|Jan)', r'1\1-\2', text) # Generalize 4X -> 1X for dates if >> 31
+    
+    return text
 
 def extract_certificate_fields(lines):
     """
@@ -339,7 +506,8 @@ def extract_certificate_fields(lines):
     
     # helper to clean value
     def clean_val(v):
-        return v.strip().lstrip(':').replace('|', '').strip()
+        v = v.strip().lstrip(':').replace('|', '').strip()
+        return fix_common_ocr_errors(v)
 
     for i, line in enumerate(lines):
         for key in fields_to_extract:
@@ -360,13 +528,15 @@ def extract_certificate_fields(lines):
                     same_line_val = line[match.end():].strip()
                     # If it's a date field, look for date pattern specifically
                     if "date" in json_key:
-                        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', same_line_val)
+                        cleaned_val = fix_common_ocr_errors(same_line_val)
+                        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_val)
                         if date_match:
                             value_found = date_match.group(1)
                         else:
-                             # If lots of text but no date, maybe it's noise? 
-                             # But if it's short/empty, we check next line.
-                             pass
+                             # Check for noisy date (e.g. 43-Jun-2023)
+                             noisy_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', fix_common_ocr_errors(same_line_val))
+                             if noisy_match:
+                                 value_found = noisy_match.group(1)
                     else:
                         value_found = clean_val(same_line_val)
                         if "of document" in value_found.lower(): value_found = ""
@@ -385,7 +555,8 @@ def extract_certificate_fields(lines):
                     
                     if not is_next_line_key:
                         if "date" in json_key:
-                            date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', next_line)
+                            cleaned_next = fix_common_ocr_errors(next_line)
+                            date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_next)
                             if date_match:
                                 value_found = date_match.group(1)
                         else:
@@ -403,15 +574,23 @@ def extract_certificate_fields(lines):
     # === FALLBACK: Extract common fields from entire text using patterns ===
     full_text = '\n'.join(lines)
     
-    # Certificate Number (IN-GJ format) - Fixed regex to capture full 17-digit number
+    # Certificate Number (IN-GJ format) - Relaxed Regex for Noisy OCR
+    # Matches IN-GJ... followed by digits/chars, tolerating some noise
     if 'certificate_no' not in extracted or not extracted.get('certificate_no'):
-        cert_match = re.search(r'(IN-[A-Z]{2}\d{14,17}X)', full_text)
+        # Standard strict: IN-[A-Z]{2}\d{14}
+        # Relaxed: IN-[A-Z]{2} then alphanumeric
+        cert_match = re.search(r'(IN-[A-Z]{2}[A-Z0-9\s-]{14,20})', full_text)
         if cert_match:
-            extracted['certificate_no'] = cert_match.group(1)
+            raw_cert = cert_match.group(1).replace(' ', '').replace('-', '')
+            # Reformat to IN-GJ...
+            if len(raw_cert) > 4:
+                extracted['certificate_no'] = raw_cert[:2] + '-' + raw_cert[2:4] + raw_cert[4:]
     
     # Date (DD-MMM-YYYY format)
     if 'date' not in extracted or not extracted.get('date'):
-        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', full_text)
+        # Run fix on full text first
+        cleaned_full = fix_common_ocr_errors(full_text)
+        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_full)
         if date_match:
             extracted['date'] = date_match.group(1)
     

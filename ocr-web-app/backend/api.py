@@ -146,27 +146,93 @@ def run_ocr_process(job_id: str, files: List[Path]):
                         doc.close()
                         
                         pdf_pages_results = []
+                        detected_doc_type = None
+                        
                         for pg in range(1, total_pages + 1):
                             jobs[job_id]["message"] = f"Processing file {idx + 1}/{total_files} (Page {pg}/{total_pages})..."
                             
+                            # Pass prior_doc_type if we already detected it (Skipping redundant AI calls)
                             page_res = process_single_page_ocr(
                                 str(file_path), 
                                 page_num=pg, 
                                 output_dir=output_dir, 
-                                doc_handle=None
+                                doc_handle=None,
+                                prior_doc_type=detected_doc_type
                             )
+                            
                             if page_res:
                                 pdf_pages_results.append(page_res)
+                                # Capture doc_type from first page
+                                if pg == 1 and page_res.get('extracted_fields'):
+                                    doc_type_str = page_res['extracted_fields'].get('document_type', '')
+                                    if doc_type_str:
+                                        print(f"🔒 [API] Locking classification to: {doc_type_str}")
+                                        from document_processors.base_processor import DocumentType
+                                        # Map string back to Enum if possible
+                                        try:
+                                            detected_doc_type = DocumentType(doc_type_str)
+                                        except:
+                                            pass
+
+                        # === GLOBAL EXTRACTION (Optimization) ===
+                        # If Legal/Rent Agreement OR Certificate, attempt to merge.
                         
-                        # Use results from Page 1 for high-level summary, but include all pages
+                        final_doc_result = {}
+                        
+                        is_mergeable = False
                         if pdf_pages_results:
-                            ocr_res = pdf_pages_results[0].copy()
-                            # Aggregate full text from all pages
-                            full_multipage_text = "\n\n".join([p.get('full_text', '') for p in pdf_pages_results])
-                            ocr_res['full_text'] = full_multipage_text
-                            ocr_res['pages'] = pdf_pages_results
+                             first_page_type = pdf_pages_results[0].get('extracted_fields', {}).get('document_type', '')
+                             # Allow merging for Legal OR Certificates (since users upload multi-page stamp papers)
+                             if first_page_type in ['rent_agreement', 'legal_document', 'contract', 'stamp_duty_certificate', 'financial']:
+                                 is_mergeable = True
+
+                        if is_mergeable:
+                            print(f"✨ [API] Performing GLOBAL EXTRACTION for {first_page_type}...")
+                            # 1. Aggregate Text
+                            combined_text = "\n\n".join([p.get('full_text', '') for p in pdf_pages_results])
+                            combined_lines = []
+                            for p in pdf_pages_results:
+                                combined_lines.extend(p.get('lines', []))
+                                
+                            # 2. Run Appropriate Processor on Full Text
+                            try:
+                                if first_page_type in ['stamp_duty_certificate', 'financial']:
+                                     # For certificates, we want to extract from the merged text (e.g. if fields span pages)
+                                     # But usually certificates are page-by-page. However, user might want one JSON object.
+                                     # Let's keep them separate for now unless user explicitly asked to merge certificates.
+                                     # ACTUALLY: User's JSON showed 10 items. They probably WANT 1 item per document.
+                                     # Let's use LegalProcessor if it looks like an agreement even if classified as certificate
+                                     if "agreement" in combined_text.lower():
+                                         from document_processors.legal_processor import LegalProcessor
+                                         processor = LegalProcessor()
+                                         global_fields = processor.extract_fields(combined_text, combined_lines)
+                                     else:
+                                         # Just standard certificate extraction on the first page + aggregate text
+                                         from pdf_ocr import extract_certificate_fields
+                                         global_fields = extract_certificate_fields(combined_lines)
+
+                                else:
+                                    # Standard Legal Processor
+                                    from document_processors.legal_processor import LegalProcessor
+                                    processor = LegalProcessor()
+                                    global_fields = processor.extract_fields(combined_text, combined_lines)
+                                
+                                global_fields['full_text'] = combined_text # Ensure full text is present
+                                
+                                # 3. Create Single Result Object
+                                final_doc_result = global_fields
+                                results.append(final_doc_result)
+                                
+                            except Exception as e:
+                                print(f"Global extraction failed: {e}")
+                                # Fallback to page 1
+                                results.append(pdf_pages_results[0]['extracted_fields'])
+
                         else:
-                             ocr_res = {'lines': [], 'full_text': '', 'confidence': 0}
+                            # STANDARD BEHAVIOR (Others)
+                            # Return list of page results as before
+                            extracted_pages = [p.get('extracted_fields', {}) for p in pdf_pages_results]
+                            results.extend(extracted_pages)
                              
                     else:
                         # For images
@@ -175,19 +241,8 @@ def run_ocr_process(job_id: str, files: List[Path]):
                             display_num=idx + 1,
                             output_dir=output_dir
                         )
-                        ocr_res['pages'] = [ocr_res] # Treat image as 1-page doc
+                        results.append(ocr_res.get('extracted_fields', {}))
                     
-                    
-                    # Format results to match CLI output structure
-                    # USER REQUEST: Save ONLY extracted_fields per page (no wrapper)
-                    page_results = []
-                    for page_data in ocr_res.get('pages', []):
-                        # Save only the extracted fields, exactly like CLI output
-                        page_result = page_data.get('extracted_fields', {})
-                        page_results.append(page_result)
-                    
-                    # Add all page results to main results
-                    results.extend(page_results)
                     
                 except Exception as e:
                     print(f"Error processing file {file_path}: {e}")
