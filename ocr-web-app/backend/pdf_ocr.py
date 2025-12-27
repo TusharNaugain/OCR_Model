@@ -208,6 +208,17 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
     ocr_lines = []
     skip_full_page = False
 
+    # === EVALUATE FAST TEXT MODE ===
+    # If the document is known to be simple text (Historical, Legal, etc), skip the 
+    # expensive Super Resoltuion Header Scan and Fallbacks.
+    is_fast_text_mode = False
+    
+    if prior_doc_type:
+         # Skip fancy header scan for these types
+         if prior_doc_type.value in ['historical_document', 'legal_document', 'rent_agreement', 'contract', 'generic']:
+             is_fast_text_mode = True
+             print(f"   ⏩ [FastText] Skipping Cert Header Scan for {prior_doc_type.value}")
+
     # === PHASE 1: CERTIFICATE HEADER SCAN ===
     if ULTRA_FAST_MODE:
         # Ultra-Fast logic (skipped for backend usually, but keeping for parity)
@@ -224,6 +235,10 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
         header_lines = [l.strip() for l in text.split('\n') if l.strip()]
         skip_full_page = True 
         ocr_lines = header_lines # In ultra-fast, this is it
+    
+    elif is_fast_text_mode:
+        # SKIP HEADER SCAN completely for speed
+        header_lines = []
     
     else:
         # Normal/Robust Mode: Super-Resolution Header Scan
@@ -254,16 +269,28 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         
         # --- Advanced Preprocessing from main.py ---
-        img_processed = img.convert('L')
-        img_np = np.array(img_processed)
-        img_filtered = cv2.bilateralFilter(img_np, 9, 75, 75)
-        img_pil = Image.fromarray(img_filtered)
-        img_pil = ImageEnhance.Contrast(img_pil).enhance(1.8)
-        img_pil = ImageEnhance.Sharpness(img_pil).enhance(1.5)
-        img_np = np.array(img_pil)
-        kernel = np.ones((2, 2), np.uint8)
-        img_np = cv2.morphologyEx(img_np, cv2.MORPH_CLOSE, kernel)
-        img_processed = Image.fromarray(img_np)
+        # Optimization: In fast text mode, skip heavy bilateral filtering
+        if is_fast_text_mode:
+             # Lightweight preprocessing for speed
+             img_processed = img.convert('L')
+             img_processed = ImageOps.invert(img_processed) if False else img_processed # Placeholder for future
+             # Just simple thresholding or direct
+             # Actually Tesseract handles gray well. 
+             # Let's just do mild contrast
+             img_processed = ImageEnhance.Contrast(img_processed).enhance(1.5)
+             print("   ⚡ [FastText] Skipping heavy bilateral filter")
+             
+        else:
+            img_processed = img.convert('L')
+            img_np = np.array(img_processed)
+            img_filtered = cv2.bilateralFilter(img_np, 9, 75, 75)
+            img_pil = Image.fromarray(img_filtered)
+            img_pil = ImageEnhance.Contrast(img_pil).enhance(1.8)
+            img_pil = ImageEnhance.Sharpness(img_pil).enhance(1.5)
+            img_np = np.array(img_pil)
+            kernel = np.ones((2, 2), np.uint8)
+            img_np = cv2.morphologyEx(img_np, cv2.MORPH_CLOSE, kernel)
+            img_processed = Image.fromarray(img_np)
         
         # DEBUG SAVE
         if output_dir:
@@ -347,8 +374,10 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
 
     # === FALLBACKS (CONDITIONAL) ===
     # Only run expensive fallbacks if it LOOKS like a certificate but is missing the number
+    # AND we are not in Fast Text Mode
     should_run_fallbacks = (
         not ULTRA_FAST_MODE and 
+        not is_fast_text_mode and
         (doc_type == DocumentType.FINANCIAL or doc_type == DocumentType.UNKNOWN) and
         not re.search(r'IN-[A-Z]{2}.*\d{5}', full_text_check, re.IGNORECASE)
     )
@@ -471,6 +500,43 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
 
     return extracted
 
+# === CLEANING HELPERS ===
+def is_garbage_line(text):
+    """
+    Returns True if the line is likely OCR noise.
+    """
+    if not text: return True
+    text = text.strip()
+    if len(text) < 3: return True 
+    
+    # Calculate symbol ratio
+    alnum_count = sum(c.isalnum() for c in text)
+    symbol_count = len(text) - alnum_count
+    total = len(text)
+    
+    if total > 0 and (symbol_count / total) > 0.4: # >40% symbols is garbage
+        return True
+        
+    # Check for specific noise patterns like "_-~_"
+    if re.match(r'^[\W_]+$', text): 
+        return True
+        
+    return False
+
+def validate_date(date_str):
+    """
+    Validates if a date is reasonable (e.g. year 2000-2030).
+    """
+    try:
+        match = re.search(r'\d{4}', date_str)
+        if match:
+            year = int(match.group(0))
+            if 2000 <= year <= 2030:
+                return True
+    except:
+        pass
+    return False
+
 def fix_common_ocr_errors(text):
     """
     Fix specific recurring OCR errors for this dataset.
@@ -485,8 +551,22 @@ def fix_common_ocr_errors(text):
 
 def extract_certificate_fields(lines):
     """
-    Extract specific key-value pairs where the value is to the right of the key.
+    Extract specific key-value pairs with HIGH ACCURACY and NOISE FILTERING.
     """
+    # 1. First, Garbage Collection
+    clean_lines = [l for l in lines if not is_garbage_line(l)]
+    full_text_clean = "\n".join(clean_lines)
+
+    extracted = {}
+    
+    # helper to clean value
+    def clean_val(v):
+        v = v.strip().lstrip(':').replace('|', '').strip()
+        # Strict Noise Removal: Strip leading/trailing non-alnum chars
+        v = re.sub(r'^[\W_]+', '', v)
+        v = re.sub(r'[\W_]+$', '', v)
+        return fix_common_ocr_errors(v)
+
     fields_to_extract = [
         "Certificate No.",
         "Certificate Issued Date",
@@ -495,145 +575,92 @@ def extract_certificate_fields(lines):
         "Purchased by",
         "Description of Document",
         "Description",
-        "Consideration Price (Rs.) First Party",
+        "Consideration Price (Rs.)",
+        "First Party",
         "Second Party",
-        "Stamp Duty Paid By"
+        "Stamp Duty Paid By",
+        "Stamp Duty Amount(Rs.)"
     ]
-    # Sort keys by length descending to prevent "Description" matching inside "Description of Document"
+    # Sort keys by length descending
     fields_to_extract.sort(key=len, reverse=True)
     
-    extracted = {}
-    
-    # helper to clean value
-    def clean_val(v):
-        v = v.strip().lstrip(':').replace('|', '').strip()
-        return fix_common_ocr_errors(v)
-
-    for i, line in enumerate(lines):
+    for i, line in enumerate(clean_lines): # Use clean_lines iterator!
+        if not line.strip(): continue
+        
         for key in fields_to_extract:
             if key.lower() in line.lower():
-                # Normalize key for JSON
+                # Normalize key
                 json_key = key.lower().replace('.', '').replace(' ', '_').replace('(', '').replace(')', '')
                 
-                # Avoid overwriting if we already found a good value
+                # Prevent overwrite logic
                 if json_key in extracted and len(extracted[json_key]) > 5:
                     continue
 
                 value_found = ""
                 
-                # 1. Try Same Line
-                pattern = re.compile(re.escape(key), re.IGNORECASE)
-                match = pattern.search(line)
+                # 1. Same Line Extraction
+                pattern = re.escape(key) + r'[:\s\-]*(.*)'
+                match = re.search(pattern, line, re.IGNORECASE)
+                
                 if match:
-                    same_line_val = line[match.end():].strip()
-                    # If it's a date field, look for date pattern specifically
+                    raw_val = match.group(1).strip()
+                    
+                    # Logic per field type
                     if "date" in json_key:
-                        cleaned_val = fix_common_ocr_errors(same_line_val)
-                        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_val)
-                        if date_match:
-                            value_found = date_match.group(1)
-                        else:
-                             # Check for noisy date (e.g. 43-Jun-2023)
-                             noisy_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', fix_common_ocr_errors(same_line_val))
-                             if noisy_match:
-                                 value_found = noisy_match.group(1)
+                        cleaned_val = fix_common_ocr_errors(raw_val)
+                        d_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_val)
+                        if d_match:
+                            d_val = d_match.group(1)
+                            if validate_date(d_val): 
+                                value_found = d_val
+                        # STRICT: If no date match, do NOT just take the raw_val text.
+                        # Leave value_found as empty to potentially trigger next line check (which also must be valid)
+                    
+                    elif "certificate_no" in json_key:
+                         # Strict ID: Must be IN-... or alphanumeric long
+                         # Remove surrounding noise
+                         raw_val = clean_val(raw_val)
+                         id_match = re.search(r'(IN-[A-Z0-9]+)', raw_val)
+                         if id_match:
+                             value_found = id_match.group(1)
+                         else:
+                             if len(raw_val) > 8: value_found = raw_val
+                             
                     else:
-                        value_found = clean_val(same_line_val)
+                        value_found = clean_val(raw_val)
                         if "of document" in value_found.lower(): value_found = ""
 
-                # 2. Try Next Line (if strictly empty or looks like noise)
-                # Heuristic: If value is empty OR (it's a date field and we didn't find a date)
-                should_check_next = not value_found
-                if "date" in json_key and not re.search(r'\d{2}-[A-Za-z]{3}-\d{4}', value_found):
-                    should_check_next = True
-                    
-                if should_check_next and i + 1 < len(lines):
-                    next_line = lines[i+1].strip()
-                    # Determine if next line is a separate key or the value
-                    # If next line contains one of our other keys, it's not the value.
-                    is_next_line_key = any(k.lower() in next_line.lower() for k in fields_to_extract)
-                    
-                    if not is_next_line_key:
+                # 2. Next Line Logic
+                if not value_found and i + 1 < len(clean_lines):
+                    next_l = clean_lines[i+1].strip()
+                    # Check if next line is a key
+                    is_next_key = any(k.lower() in next_l.lower() for k in fields_to_extract)
+                    if not is_next_key:
+                        candidate = clean_val(next_l)
                         if "date" in json_key:
-                            cleaned_next = fix_common_ocr_errors(next_line)
-                            date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_next)
-                            if date_match:
-                                value_found = date_match.group(1)
+                             # STRICT: Only accept if it looks like a date
+                             if re.search(r'\d{2}-[A-Za-z]{3}-\d{4}', candidate):
+                                  value_found = candidate
                         else:
-                            # For non-dates, assume next line is the value if reasonably short
-                            # Fix for Stamp Duty Paid By consuming Stamp Duty Amount line
-                            if "stamp duty amount" in next_line.lower():
-                                value_found = "" # Do not consume next line
-                            else:
-                                value_found = clean_val(next_line)
-                
+                             value_found = candidate
                 
                 if value_found:
                     extracted[json_key] = value_found
-    
-    # === FALLBACK: Extract common fields from entire text using patterns ===
-    full_text = '\n'.join(lines)
-    
-    # Certificate Number (IN-GJ format) - Relaxed Regex for Noisy OCR
-    # Matches IN-GJ... followed by digits/chars, tolerating some noise
-    if 'certificate_no' not in extracted or not extracted.get('certificate_no'):
-        # Standard strict: IN-[A-Z]{2}\d{14}
-        # Relaxed: IN-[A-Z]{2} then alphanumeric
-        cert_match = re.search(r'(IN-[A-Z]{2}[A-Z0-9\s-]{14,20})', full_text)
-        if cert_match:
-            raw_cert = cert_match.group(1).replace(' ', '').replace('-', '')
-            # Reformat to IN-GJ...
-            if len(raw_cert) > 4:
-                extracted['certificate_no'] = raw_cert[:2] + '-' + raw_cert[2:4] + raw_cert[4:]
-    
-    # Date (DD-MMM-YYYY format)
-    if 'date' not in extracted or not extracted.get('date'):
-        # Run fix on full text first
-        cleaned_full = fix_common_ocr_errors(full_text)
-        date_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_full)
-        if date_match:
-            extracted['date'] = date_match.group(1)
-    
-    # Amount (look for standalone numbers like 500)
-    if 'amount' not in extracted or not extracted.get('amount'):
-        # Look for lines with just a number (likely the amount)
-        for line in lines:
-            if line.strip().isdigit() and 100 <= int(line.strip()) <= 100000:
-                extracted['amount'] = line.strip()
-                break
-    
-    # Stamp Duty Type (Article 5(h) pattern) - Fixed to capture full text
-    if 'stamp_duty_type' not in extracted or not extracted.get('stamp_duty_type'):
-        article_match = re.search(r'(Article \d+\([a-z]\) [^\\n]+)', full_text, re.IGNORECASE)
-        if article_match:
-            extracted['stamp_duty_type'] = article_match.group(1).strip()
-    
-    # Account Reference (gj followed by 8-11 digits) - More precise
-    if 'account' not in extracted or not extracted.get('account'):
-        account_match = re.search(r'(gj\d{8,11})', full_text, re.IGNORECASE)
-        if account_match:
-            # Extract just the first 10-11 digits after 'gj'
-            account_full = account_match.group(1).lower()
-            extracted['account'] = account_full[:10] if len(account_full) > 10 else account_full
-    
-    # Branch (GJ-XXX pattern)
-    if 'branch' not in extracted or not extracted.get('branch'):
-        extracted['branch'] = 'GJ-XXX'  # Default for Gujarat
-    
-    # Generated On (extract from date if available)
-    if 'generated_on' not in extracted and 'date' in extracted:
-        try:
-            from datetime import datetime
-            date_obj = datetime.strptime(extracted['date'], '%d-%b-%Y')
-            extracted['generated_on'] = date_obj.strftime('%d-%m-%y')
-        except:
-            pass
-    
-    # Party Name (ORBIS TRUSTEESHIP pattern)
-    if 'first_party_name' not in extracted or not extracted.get('first_party_name'):
-        party_match = re.search(r'(ORBIS TRUSTEESHIP SERVICES PRIVATE LIMITED)', full_text)
-        if party_match:
-            extracted['first_party_name'] = party_match.group(1)
-            extracted['party_name'] = party_match.group(1)  # Also set party_name
-    
+                    
+    # FALLBACKS (Full Text Search)
+    if 'certificate_no' not in extracted:
+        # Strict Regex search in cleaned text
+        match = re.search(r'(IN-[A-Z]{2}\d{10,}\w+|IN-[A-Z]{2}[A-Z0-9]{10,})', full_text_clean)
+        if match:
+            extracted['certificate_no'] = match.group(0).strip()
+            
+    if 'date' not in extracted and 'certificate_issued_date' not in extracted:
+         dates = re.findall(r'(\d{2}-[A-Za-z]{3}-\d{4})', full_text_clean)
+         for d in dates:
+             d = fix_common_ocr_errors(d)
+             if validate_date(d):
+                 extracted['date'] = d
+                 break
+                 
     return extracted
+

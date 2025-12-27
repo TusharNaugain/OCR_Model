@@ -148,31 +148,64 @@ def run_ocr_process(job_id: str, files: List[Path]):
                         pdf_pages_results = []
                         detected_doc_type = None
                         
-                        for pg in range(1, total_pages + 1):
-                            jobs[job_id]["message"] = f"Processing file {idx + 1}/{total_files} (Page {pg}/{total_pages})..."
+                        # 1. Process Page 1 Synchronously (for Classification)
+                        jobs[job_id]["message"] = f"Analyzing document type (Page 1)..."
+                        
+                        pdf_pages_results = [None] * total_pages
+                        
+                        # Process Page 1
+                        page1_res = process_single_page_ocr(
+                            str(file_path), 1, output_dir=output_dir, doc_handle=None, prior_doc_type=None
+                        )
+                        
+                        if page1_res:
+                            pdf_pages_results[0] = page1_res
                             
-                            # Pass prior_doc_type if we already detected it (Skipping redundant AI calls)
-                            page_res = process_single_page_ocr(
-                                str(file_path), 
-                                page_num=pg, 
-                                output_dir=output_dir, 
-                                doc_handle=None,
-                                prior_doc_type=detected_doc_type
-                            )
+                            # Detect Type
+                            if page1_res.get('extracted_fields'):
+                                doc_type_str = page1_res['extracted_fields'].get('document_type', '')
+                                if doc_type_str:
+                                    print(f"🔒 [API] Locking classification to: {doc_type_str}")
+                                    from document_processors.base_processor import DocumentType
+                                    try:
+                                        detected_doc_type = DocumentType(doc_type_str)
+                                    except:
+                                        pass
+                        
+                        # 2. Process Page 2..N in Parallel
+                        if total_pages > 1:
+                            print(f"🚀 [API] Parallelizing pages 2-{total_pages}...")
+                            from concurrent.futures import ProcessPoolExecutor, as_completed
+                            import multiprocessing
                             
-                            if page_res:
-                                pdf_pages_results.append(page_res)
-                                # Capture doc_type from first page
-                                if pg == 1 and page_res.get('extracted_fields'):
-                                    doc_type_str = page_res['extracted_fields'].get('document_type', '')
-                                    if doc_type_str:
-                                        print(f"🔒 [API] Locking classification to: {doc_type_str}")
-                                        from document_processors.base_processor import DocumentType
-                                        # Map string back to Enum if possible
-                                        try:
-                                            detected_doc_type = DocumentType(doc_type_str)
-                                        except:
-                                            pass
+                            max_workers = min(total_pages - 1, multiprocessing.cpu_count()) 
+                            # Safe limit
+                            if max_workers < 1: max_workers = 1
+                            
+                            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                                future_to_page = {
+                                    executor.submit(
+                                        process_single_page_ocr, 
+                                        str(file_path), 
+                                        p, 
+                                        output_dir=output_dir, 
+                                        doc_handle=None,
+                                        prior_doc_type=detected_doc_type
+                                    ): p for p in range(2, total_pages + 1)
+                                }
+                                
+                                for i, future in enumerate(as_completed(future_to_page)):
+                                    pg = future_to_page[future]
+                                    jobs[job_id]["message"] = f"Processing parallel batch ({i+1}/{total_pages-1})..."
+                                    try:
+                                        res = future.result()
+                                        if res:
+                                            pdf_pages_results[pg - 1] = res
+                                    except Exception as exc:
+                                        print(f"❌ Page {pg} Failed: {exc}")
+
+                        # Filter out Nones
+                        pdf_pages_results = [p for p in pdf_pages_results if p is not None]
 
                         # === GLOBAL EXTRACTION (Optimization) ===
                         # If Legal/Rent Agreement OR Certificate, attempt to merge.
@@ -197,17 +230,27 @@ def run_ocr_process(job_id: str, files: List[Path]):
                             # 2. Run Appropriate Processor on Full Text
                             try:
                                 if first_page_type in ['stamp_duty_certificate', 'financial']:
-                                     # For certificates, we want to extract from the merged text (e.g. if fields span pages)
-                                     # But usually certificates are page-by-page. However, user might want one JSON object.
-                                     # Let's keep them separate for now unless user explicitly asked to merge certificates.
-                                     # ACTUALLY: User's JSON showed 10 items. They probably WANT 1 item per document.
-                                     # Let's use LegalProcessor if it looks like an agreement even if classified as certificate
-                                     if "agreement" in combined_text.lower():
+                                     # GLOBAL CONSENSUS:
+                                     # User uploaded a mulit-page stamp paper. Merging into 1 result.
+                                     # Heuristic: If it contains 'Agreement', use LegalProcessor.
+                                     # Else, treat as single Certificate (e.g. 1st page has details).
+                                     
+                                     print("   🌍 [Global] Merging Stamp Duty/Financial document...")
+                                     
+                                     has_agreement_text = "agreement" in combined_text.lower() or "contract" in combined_text.lower()
+                                     
+                                     if has_agreement_text:
+                                         print("      -> Detected Agreement text. Using LegalProcessor.")
                                          from document_processors.legal_processor import LegalProcessor
                                          processor = LegalProcessor()
                                          global_fields = processor.extract_fields(combined_text, combined_lines)
+                                         # Ensure we keep the Doc Type as 'stamp_duty' if identified
+                                         if first_page_type == 'stamp_duty_certificate':
+                                              global_fields['document_type'] = 'stamp_duty_certificate'
                                      else:
-                                         # Just standard certificate extraction on the first page + aggregate text
+                                         # It's a pure certificate but multi-page?
+                                         # Just extract using standard logic on the combined text (or Page 1 preference)
+                                         print("      -> Pure Certificate. consolidating...")
                                          from pdf_ocr import extract_certificate_fields
                                          global_fields = extract_certificate_fields(combined_lines)
 
