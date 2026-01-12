@@ -12,7 +12,7 @@ import re
 import logging
 from typing import Dict, Tuple, Optional, List
 from PIL import Image
-import google.generativeai as genai
+# import google.generativeai as genai (Lazy loaded)
 
 from document_processors.base_processor import DocumentType
 
@@ -37,6 +37,7 @@ class DocumentClassifier:
         
         if self.use_gemini:
             try:
+                import google.generativeai as genai
                 genai.configure(api_key=GEMINI_API_KEY)
                 self.model = genai.GenerativeModel(GEMINI_MODEL)
                 logger.info(f"Gemini classifier initialized with model: {GEMINI_MODEL}")

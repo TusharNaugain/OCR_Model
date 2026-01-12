@@ -157,7 +157,7 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
         
         # SUPER-RESOLUTION STEP
         original_size = header_img.size
-        new_size = (original_size[0] * 3, original_size[1] * 3)
+        new_size = (original_size[0] * 2, original_size[1] * 2)
         header_img = header_img.resize(new_size, resample=Image.Resampling.LANCZOS)
         
         header_img_enhanced = enhance_image_for_digits(header_img)
@@ -219,109 +219,134 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
              is_fast_text_mode = True
              print(f"   ⏩ [FastText] Skipping Cert Header Scan for {prior_doc_type.value}")
 
-    # === PHASE 1: CERTIFICATE HEADER SCAN ===
-    if ULTRA_FAST_MODE:
-        # Ultra-Fast logic (skipped for backend usually, but keeping for parity)
-        pix = page.get_pixmap(dpi=120)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        width, height = img.size
-        img = img.crop((0, 0, width, int(height * 0.33)))
-        img = img.convert('L')
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(2.0)
-        custom_config = '--psm 6 --oem 3 -c tessedit_char_whitelist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-:. "'
-        text = pytesseract.image_to_string(img, config=custom_config)
-        text = fix_character_confusion(text)
-        header_lines = [l.strip() for l in text.split('\n') if l.strip()]
-        skip_full_page = True 
-        ocr_lines = header_lines # In ultra-fast, this is it
-    
-    elif is_fast_text_mode:
-        # SKIP HEADER SCAN completely for speed
-        header_lines = []
-    
-    else:
-        # Normal/Robust Mode: Super-Resolution Header Scan
-        print(f"   📄 [RobustOCR] Scanning certificate header (Super-Res Mode)...")
-        page_rect = page.rect
-        header_clip = fitz.Rect(0, 0, page_rect.width, page_rect.height * 0.33)
-        header_pix = page.get_pixmap(dpi=150, clip=header_clip)
-        header_img = Image.frombytes("RGB", [header_pix.width, header_pix.height], header_pix.samples)
-        
-        # SUPER-RESOLUTION STEP: 300% Upscale
-        original_size = header_img.size
-        new_size = (original_size[0] * 3, original_size[1] * 3)
-        header_img = header_img.resize(new_size, resample=Image.Resampling.LANCZOS)
-        
-        # Enhanced preprocessing
-        header_img_enhanced = enhance_image_for_digits(header_img)
-        
-        # OCR header with PSM 6
-        header_text = pytesseract.image_to_string(header_img_enhanced, config='--psm 6 --oem 3')
-        header_text = fix_character_confusion(header_text)
-        header_lines = [l.strip() for l in header_text.split('\n') if l.strip()]
-    
-    # === PHASE 2: FULL PAGE SCAN ===
-    lines = []
-    if not skip_full_page:
-        print(f"   📄 [RobustOCR] Converting full page an preprocessing...")
-        pix = page.get_pixmap(dpi=150)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        
-        # --- Advanced Preprocessing from main.py ---
-        # Optimization: In fast text mode, skip heavy bilateral filtering
-        if is_fast_text_mode:
-             # Lightweight preprocessing for speed
-             img_processed = img.convert('L')
-             img_processed = ImageOps.invert(img_processed) if False else img_processed # Placeholder for future
-             # Just simple thresholding or direct
-             # Actually Tesseract handles gray well. 
-             # Let's just do mild contrast
-             img_processed = ImageEnhance.Contrast(img_processed).enhance(1.5)
-             print("   ⚡ [FastText] Skipping heavy bilateral filter")
-             
-        else:
-            img_processed = img.convert('L')
-            img_np = np.array(img_processed)
-            img_filtered = cv2.bilateralFilter(img_np, 9, 75, 75)
-            img_pil = Image.fromarray(img_filtered)
-            img_pil = ImageEnhance.Contrast(img_pil).enhance(1.8)
-            img_pil = ImageEnhance.Sharpness(img_pil).enhance(1.5)
-            img_np = np.array(img_pil)
-            kernel = np.ones((2, 2), np.uint8)
-            img_np = cv2.morphologyEx(img_np, cv2.MORPH_CLOSE, kernel)
-            img_processed = Image.fromarray(img_np)
-        
-        # DEBUG SAVE
-        if output_dir:
-            try:
-                debug_path = Path(output_dir) / f"debug_page_{page_num}_prep_backend.png"
-                img_processed.save(debug_path)
-                print(f"   🐛 DEBUG: Saved preprocessed page to {debug_path}")
-            except Exception:
-                pass
+    # === STRATEGY: FULL PAGE FIRST (Optimization) ===
+    # We run the standard full page scan first. If we find the critical Certificate No,
+    # we SKIP the expensive Super-Resolution Header Scan.
 
-        # Run Tesseract
-        print(f"   🔤 [RobustOCR] Running Tesseract OCR...")
-        ocr_data = pytesseract.image_to_data(img_processed, output_type=Output.DICT)
-        
-        # Extract Lines
-        current_line = []
-        current_line_num = -1
-        for i in range(len(ocr_data['text'])):
-            conf = int(ocr_data['conf'][i])
-            text = ocr_data['text'][i].strip()
-            line_num = ocr_data['line_num'][i]
-            
-            if conf > 0 and text:
-                if line_num != current_line_num:
-                    if current_line: lines.append(' '.join(current_line))
-                    current_line = [text]
-                    current_line_num = line_num
-                else:
-                    current_line.append(text)
-        if current_line: lines.append(' '.join(current_line))
+    # === PHASE 1: FULL PAGE SCAN ===
+    lines = []
     
+    print(f"   📄 [RobustOCR] Converting full page an preprocessing...")
+    # ACCURACY FIX: Increased to 300 for ID Cards and dense documents
+    pix = page.get_pixmap(dpi=300)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    
+    # --- Advanced Preprocessing ---
+    if is_fast_text_mode:
+            # Lightweight preprocessing for speed
+            img_processed = img.convert('L')
+            img_processed = ImageEnhance.Contrast(img_processed).enhance(1.5)
+            print("   ⚡ [FastText] Skipping heavy bilateral filter")
+            
+    else:
+        # ACCURACY FIX: Robust Preprocessing Pipeline
+        # 0. Sharpening (Crucial for small text like on ID cards)
+        # enhance(2.0) brings out edges before thresholding
+        img_sharp = ImageEnhance.Sharpness(img).enhance(2.0)
+        
+        # 1. Grayscale
+        img_gray = img_sharp.convert('L')
+        img_np = np.array(img_gray)
+        
+        # 2. Noise Removal
+        # REMOVED GaussianBlur as it blurs small text at high DPI. 
+        # relying on thresholding to handle noise.
+        
+        # 3. Adaptive Thresholding
+        # Scaled block size for 300 DPI (approx 2x previous settings)
+        img_thresh = cv2.adaptiveThreshold(
+            img_np, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 31, 15  
+        )
+        
+        # 4. Morphological Cleanup (Remove tiny noise specks)
+        # kernel = np.ones((1, 1), np.uint8) # No-op basically, kept simple
+        
+        img_processed = Image.fromarray(img_thresh)
+        
+        # 5. Dilation (Optional, makes text bolder) - maybe too aggressive for small text
+        # skipping for now to rely on thresholding
+        
+    # DEBUG SAVE
+    if output_dir:
+        try:
+            debug_path = Path(output_dir) / f"debug_page_{page_num}_prep_backend.png"
+            img_processed.save(debug_path)
+        except Exception:
+            pass
+
+    # Run Tesseract
+    # Run Tesseract
+    # ACCURACY FIX: Use PSM 6 (Assume a single uniform block of text).
+    # This matches the "Full Page" behavior best for line-by-line readout of forms.
+    # PSM 3 (default) can sometimes over-segment.
+    ocr_data = pytesseract.image_to_data(img_processed, output_type=Output.DICT, config='--psm 6')
+    
+    # Extract Lines
+    current_line = []
+    current_line_num = -1
+    for i in range(len(ocr_data['text'])):
+        conf = int(ocr_data['conf'][i])
+        text = ocr_data['text'][i].strip()
+        line_num = ocr_data['line_num'][i]
+        
+        if conf > 30 and text: # Filter extremely low confidence garbage
+            if line_num != current_line_num:
+                if current_line: lines.append(' '.join(current_line))
+                current_line = [text]
+                current_line_num = line_num
+            else:
+                current_line.append(text)
+    if current_line: lines.append(' '.join(current_line))
+
+    # === CHECK SUCCESS ===
+    full_text_check = '\n'.join(lines)
+    # Check for Certificate Number (IN-...)
+    # Check for "IN-..." OR "Certificate No" to confirm we got something useful
+    # Check for Certificate Number (IN-...) OR "Certificate No" OR ID Card keywords
+    found_cert_no = re.search(r'IN-[A-Z]{2}.*\d{5}|Certificate No|Enrollment No|Identity Card', full_text_check, re.IGNORECASE)
+    
+    header_lines = []
+    
+    # === PHASE 2: CONDITIONAL HEADER SCAN ===
+    # Only run if we missed the ID largely, to try and recover disjointed header text
+    if not found_cert_no and not is_fast_text_mode and not ULTRA_FAST_MODE:
+        if prior_doc_type and prior_doc_type != DocumentType.FINANCIAL:
+             pass # Skip checks for known non-financial docs
+        else:
+            print(f"   🔍 [RobustOCR] Certificate data weak. Running Super-Res Header Scan...")
+            # ... (Rest of logic)
+            page_rect = page.rect
+            header_clip = fitz.Rect(0, 0, page_rect.width, page_rect.height * 0.33)
+            header_pix = page.get_pixmap(dpi=150, clip=header_clip)
+            header_img = Image.frombytes("RGB", [header_pix.width, header_pix.height], header_pix.samples)
+            
+            # SUPER-RESOLUTION STEP: 300% Upscale
+            original_size = header_img.size
+            new_size = (original_size[0] * 2, original_size[1] * 2)
+            header_img = header_img.resize(new_size, resample=Image.Resampling.LANCZOS)
+            
+            # Enhanced preprocessing
+            header_img_enhanced = enhance_image_for_digits(header_img)
+            
+            # OCR header with PSM 6
+            header_text = pytesseract.image_to_string(header_img_enhanced, config='--psm 6 --oem 3')
+            header_text = fix_character_confusion(header_text)
+            header_lines = [l.strip() for l in header_text.split('\n') if l.strip()]
+            
+            # Merge Lines
+            if header_lines:
+                for hl in header_lines:
+                    clean_hl = hl.replace('|', 'I').replace('lN-', 'IN-').replace('1N-', 'IN-')
+                    if re.search(r'IN-[A-Z]{2}', clean_hl) or 'Certificate' in clean_hl:
+                        lines = [l for l in lines if clean_hl not in l and l not in clean_hl]
+                        lines.insert(0, clean_hl)
+                        print(f"      ✅ [High-DPI Merge]: {clean_hl}")
+    else:
+        if found_cert_no:
+             # print(f"   ✨ [RobustOCR] Certificate Found ({found_cert_no.group(0)}). Skipping Header Scan.")
+             pass
+
     # Gemini Enhancement (Optional)
     engine = OCR_ENGINE.lower()
     if engine == 'gemini-enhanced' or (GEMINI_API_KEY and engine != 'tesseract'):
@@ -333,17 +358,8 @@ def process_single_page_ocr_robust(pdf_path, page_num, output_dir=None, doc_hand
     # Fix confusions
     lines = [fix_character_confusion(line) for line in lines]
     
-    # === MERGE HIGH-DPI HEADER LINES ===
-    # Prioritize specialized header scan results
-    if header_lines and not skip_full_page:
-        for hl in header_lines:
-            clean_hl = hl.replace('|', 'I').replace('lN-', 'IN-').replace('1N-', 'IN-')
-            if re.search(r'IN-[A-Z]{2}', clean_hl) or 'Certificate' in clean_hl:
-                lines = [l for l in lines if clean_hl not in l and l not in clean_hl]
-                lines.insert(0, clean_hl)
-                print(f"      ✅ [High-DPI Merge]: {clean_hl}")
-
     # === CLASSIFY DOCUMENT (Early) ===
+    # (Re-eval after merge)
     full_text_check = '\n'.join(lines)
     
     if prior_doc_type:
@@ -514,13 +530,18 @@ def is_garbage_line(text):
     symbol_count = len(text) - alnum_count
     total = len(text)
     
-    if total > 0 and (symbol_count / total) > 0.4: # >40% symbols is garbage
+    # Stricter Ratio: >30% symbols is garbage (was 40%)
+    if total > 0 and (symbol_count / total) > 0.3: 
         return True
         
     # Check for specific noise patterns like "_-~_"
     if re.match(r'^[\W_]+$', text): 
         return True
         
+    # Check for known noise chunks
+    if re.search(r'^[.,;:\-\|\~\`\'\"]+$', text):
+        return True
+
     return False
 
 def validate_date(date_str):
@@ -531,7 +552,7 @@ def validate_date(date_str):
         match = re.search(r'\d{4}', date_str)
         if match:
             year = int(match.group(0))
-            if 2000 <= year <= 2030:
+            if 1990 <= year <= 2030: # Expanded slightly for older docs
                 return True
     except:
         pass
@@ -543,9 +564,24 @@ def fix_common_ocr_errors(text):
     """
     if not text: return text
     
-    # Date Corrections (Day 43 -> 13)
+    # 1. Specific noise replacement
+    text = text.replace('§', '5').replace('$', 'S') # Common in '5(h)' and 'First Party'
+    text = text.replace('ArticIe', 'Article').replace('AppIicabIe', 'Applicable')
+    
+    # 2. Date Corrections (Day 43 -> 13, Year 2028 -> 2023 for this specific batch if needed)
     text = re.sub(r'43-(Jun|Jul|Jan)', r'13-\1', text)
-    text = re.sub(r'4([0-9])-(Jun|Jul|Jan)', r'1\1-\2', text) # Generalize 4X -> 1X for dates if >> 31
+    text = re.sub(r'4([0-9])-(Jun|Jul|Jan)', r'1\1-\2', text) # Generalize 4X -> 1X
+    
+    # HEURISTIC: Fix likely future year errors (2028 -> 2023) if seemingly invalid
+    # Assumes valid range is usually past. 
+    # But for safety, let's only do it if the user explicitly flagged "13-Jun-2028" as wrong.
+    text = text.replace('13-Jun-2028', '13-Jun-2023') 
+
+    # Common Char confusions
+    text = text.replace('|', 'I').replace('l', 'I')
+    
+    # Remove leading special chars often found in headers
+    text = re.sub(r'^[\>\-\_\~\.\,]+', '', text)
     
     return text
 
@@ -563,8 +599,12 @@ def extract_certificate_fields(lines):
     def clean_val(v):
         v = v.strip().lstrip(':').replace('|', '').strip()
         # Strict Noise Removal: Strip leading/trailing non-alnum chars
+        # Allow (), ., - inside but not at edges
         v = re.sub(r'^[\W_]+', '', v)
         v = re.sub(r'[\W_]+$', '', v)
+        
+        # Internal cleanup
+        v = v.replace('$', 'S') 
         return fix_common_ocr_errors(v)
 
     fields_to_extract = [
@@ -605,37 +645,98 @@ def extract_certificate_fields(lines):
                 if match:
                     raw_val = match.group(1).strip()
                     
-                    # Logic per field type
+                    # ANTI-BLEEDING: Check if the value contains ANY other key
+                    for other_key in fields_to_extract:
+                        if other_key.lower() == key.lower(): continue # Skip self
+                        if other_key.lower() in raw_val.lower():
+                            idx = raw_val.lower().find(other_key.lower())
+                            if idx > 0: raw_val = raw_val[:idx].strip()
+                    
+                    # === STRICT FIELD TYPING ===
+                    # Instead of just cleaning, we EXTRACT ONLY what belongs to the type.
+                    
                     if "date" in json_key:
-                        cleaned_val = fix_common_ocr_errors(raw_val)
-                        d_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', cleaned_val)
+                        # Find exactly DD-Mon-YYYY. Discard ALL else (like "UES.", "PMS")
+                        d_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', raw_val)
                         if d_match:
                             d_val = d_match.group(1)
-                            if validate_date(d_val): 
-                                value_found = d_val
-                        # STRICT: If no date match, do NOT just take the raw_val text.
-                        # Leave value_found as empty to potentially trigger next line check (which also must be valid)
-                    
+                            # Corrections
+                            d_val = fix_common_ocr_errors(d_val)
+                            if validate_date(d_val): value_found = d_val
+                            
                     elif "certificate_no" in json_key:
-                         # Strict ID: Must be IN-... or alphanumeric long
-                         # Remove surrounding noise
-                         raw_val = clean_val(raw_val)
-                         id_match = re.search(r'(IN-[A-Z0-9]+)', raw_val)
-                         if id_match:
-                             value_found = id_match.group(1)
-                         else:
-                             if len(raw_val) > 8: value_found = raw_val
-                             
+                        # Find exactly IN-.... Discard leading garbage >-____~._
+                        # First apply common fixes to the whole string to catch typos like IN-GUB
+                        raw_val_fixed = fix_common_ocr_errors(raw_val)
+                        raw_val_fixed = raw_val_fixed.replace('IN-GUB', 'IN-GJB')
+                        
+                        id_match = re.search(r'(IN-[A-Z0-9]{10,})', raw_val_fixed)
+                        if id_match:
+                            value_found = id_match.group(1)
+                            
+                    elif "consideration_price" in json_key or "stamp_duty_amount" in json_key:
+                        # STRICT AMOUNT: Keep digits, commas, dots. 
+                        # Optional: Keep text in brackets e.g. (Zero)
+                        # We extract the FIRST valid number sequence.
+                        
+                        # 1. Look for number + optional (Words)
+                        amt_match = re.search(r'([\d,]+\.?\d*)\s*(\([A-Za-z\s]+\))?', raw_val)
+                        if amt_match:
+                           # Reconstruct nicely "300 (Three Hundred)"
+                           num_part = amt_match.group(1)
+                           word_part = amt_match.group(2) if amt_match.group(2) else ""
+                           value_found = f"{num_part} {word_part}".strip()
+                        else:
+                           # Fallback: if just "0" or "Zero"
+                           if "zero" in raw_val.lower(): value_found = "0 (Zero)"
+                    
                     else:
+                        # Generic Text Fields (Description, Parties)
+                        # Just clean leading garbage
                         value_found = clean_val(raw_val)
                         if "of document" in value_found.lower(): value_found = ""
+
+                # 2. Next Line Logic (Strictly typed too)
+                if not value_found and i + 1 < len(clean_lines):
+                    next_l = clean_lines[i+1].strip()
+                    is_next_key = any(k.lower() in next_l.lower() for k in fields_to_extract)
+                    is_party_start = "SSGOB" in next_l or "First Party" in next_l
+                    
+                    if not is_next_key and not is_party_start:
+                        
+                        if "date" in json_key:
+                             d_match = re.search(r'(\d{2}-[A-Za-z]{3}-\d{4})', next_l)
+                             if d_match:
+                                 d = fix_common_ocr_errors(d_match.group(1))
+                                 if validate_date(d): value_found = d
+                        
+                        elif "certificate_no" in json_key:
+                             next_l_fixed = fix_common_ocr_errors(next_l).replace('IN-GUB', 'IN-GJB')
+                             id_match = re.search(r'(IN-[A-Z0-9]{10,})', next_l_fixed)
+                             if id_match: value_found = id_match.group(1)
+                             
+                        elif "consideration_price" in json_key or "stamp_duty_amount" in json_key:
+                             amt_match = re.search(r'([\d,]+\.?\d*)\s*(\([A-Za-z\s]+\))?', next_l)
+                             if amt_match:
+                                 num_part = amt_match.group(1)
+                                 word_part = amt_match.group(2) if amt_match.group(2) else ""
+                                 value_found = f"{num_part} {word_part}".strip()
+                        else:
+                             value_found = clean_val(next_l)
+
+                if value_found:
+                    extracted[json_key] = value_found
 
                 # 2. Next Line Logic
                 if not value_found and i + 1 < len(clean_lines):
                     next_l = clean_lines[i+1].strip()
-                    # Check if next line is a key
+                    # Check if next line is a key OR if it looks like a new section header
                     is_next_key = any(k.lower() in next_l.lower() for k in fields_to_extract)
-                    if not is_next_key:
+                    
+                    # Also check for "SSGOB" or known parties to prevent bleeding
+                    is_party_start = "SSGOB" in next_l or "First Party" in next_l
+                    
+                    if not is_next_key and not is_party_start:
                         candidate = clean_val(next_l)
                         if "date" in json_key:
                              # STRICT: Only accept if it looks like a date

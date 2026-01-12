@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Loader2, CheckCircle, XCircle, Download, ArrowLeft, FileText } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Download, ArrowLeft, FileText, Database } from 'lucide-react';
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000');
@@ -49,6 +49,8 @@ function ResultsContent() {
         return () => clearInterval(interval);
     }, [jobId, status?.status]);
 
+    const [downloading, setDownloading] = useState<string | null>(null);
+
     const downloadResults = () => {
         if (!results) return;
 
@@ -60,6 +62,30 @@ function ResultsContent() {
         link.download = `ocr-results-${jobId}.json`;
         link.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadFile = async (format: 'csv' | 'xlsx') => {
+        try {
+            setDownloading(format);
+            const response = await axios.get(`${API_URL}/api/ocr/export/${jobId}?format=${format}`, {
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            const extension = format === 'xlsx' ? 'xlsx' : 'csv';
+            link.setAttribute('download', `ocr_results_${jobId}.${extension}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err: any) {
+            console.error("Download failed:", err);
+            setError("Failed to download file. Please try again.");
+        } finally {
+            setDownloading(null);
+        }
     };
 
     if (!jobId) {
@@ -152,6 +178,24 @@ function ResultsContent() {
                                     <Download className="w-5 h-5" />
                                     Download Results (JSON)
                                 </button>
+                                <div className="flex gap-4 justify-center mt-4">
+                                    <button
+                                        onClick={() => handleDownloadFile('csv')}
+                                        disabled={downloading === 'csv'}
+                                        className="px-6 py-3 bg-green-600/20 border border-green-500/50 text-green-400 rounded-lg hover:bg-green-600/30 transition-all font-semibold flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {downloading === 'csv' ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+                                        Download CSV
+                                    </button>
+                                    <button
+                                        onClick={() => handleDownloadFile('xlsx')}
+                                        disabled={downloading === 'xlsx'}
+                                        className="px-6 py-3 bg-blue-600/20 border border-blue-500/50 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all font-semibold flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {downloading === 'xlsx' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Database className="w-5 h-5" />}
+                                        Download Excel
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Results Preview */}

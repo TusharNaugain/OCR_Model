@@ -151,6 +151,13 @@ export default function Home() {
               </button>
             </Link>
 
+            <Link href="/compare">
+              <button className="group relative px-8 py-4 bg-gradient-to-r from-pink-600 to-red-600 rounded-lg font-semibold text-lg hover:shadow-2xl hover:shadow-pink-500/50 transition-all duration-300">
+                <Scale className="inline-block mr-2 w-5 h-5" />
+                Compare Docs
+              </button>
+            </Link>
+
             <Link href="#how-it-works">
               <button className="px-8 py-4 glass rounded-lg font-semibold text-lg hover:bg-white/10 transition-all duration-300">
                 Learn More
@@ -375,6 +382,6 @@ export default function Home() {
           <p className="text-sm mt-2">7+ Document Types • 95%+ Accuracy • 2-4x Faster Processing</p>
         </div>
       </footer>
-    </main>
+    </main >
   );
 }

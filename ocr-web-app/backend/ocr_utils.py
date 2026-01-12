@@ -3,7 +3,7 @@ import os
 import re
 import json
 import logging
-import google.generativeai as genai
+# import google.generativeai as genai (Moved to lazy load)
 import pytesseract
 
 # Configure Tesseract Path
@@ -38,6 +38,7 @@ def get_gemini_model():
         return None
         
     try:
+        import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
         _gemini_model = genai.GenerativeModel(GEMINI_MODEL)
         return _gemini_model

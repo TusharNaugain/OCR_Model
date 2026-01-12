@@ -21,11 +21,7 @@ from PIL import Image
 
 # Import OCR components
 from document_classifier import classify_document, DocumentType
-from document_processors import (
-    FinancialProcessor, IDCardProcessor, FormProcessor,
-    LegalProcessor, HealthcareProcessor, HistoricalProcessor,
-    LogisticsProcessor
-)
+# from document_processors import ... (Moved to lazy load)
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +47,13 @@ class ParallelOCRProcessor:
         self.max_workers = max_workers or max(1, cpu_count() - 1)
         
         # Initialize processors
+        # Lazy load processors to avoid circular imports and startup overhead
+        from document_processors import (
+            FinancialProcessor, IDCardProcessor, FormProcessor,
+            LegalProcessor, HealthcareProcessor, HistoricalProcessor,
+            LogisticsProcessor
+        )
+        
         self.processors = {
             DocumentType.FINANCIAL: FinancialProcessor(),
             DocumentType.ID_CARD: IDCardProcessor(),
@@ -148,7 +151,7 @@ class ParallelOCRProcessor:
         
         try:
             # Import here to avoid pickle issues
-            from main import process_single_page_ocr
+            from pdf_ocr import process_single_page_ocr_robust as process_single_page_ocr
             from image_ocr import process_single_image_ocr
             
             # Determine if PDF or image
@@ -264,7 +267,7 @@ class ParallelOCRProcessor:
     ) -> Dict[str, Any]:
         """Process a single document with classification"""
         try:
-            from main import process_single_page_ocr
+            from pdf_ocr import process_single_page_ocr_robust as process_single_page_ocr
             from image_ocr import process_single_image_ocr
             
             # Run OCR

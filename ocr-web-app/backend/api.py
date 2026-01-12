@@ -11,6 +11,22 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import subprocess
+import pandas as pd
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN", "https://0d0b514ea6edd21fc3616f5919196888@o4510350699659264.ingest.us.sentry.io/4510641231757312"),
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
+
 
 app = FastAPI(
     title="SmartScan OCR API",
@@ -59,6 +75,7 @@ class OCRResult(BaseModel):
 from ocr_utils import OCR_ENGINE, get_gemini_model
 from image_ocr import process_single_image_ocr
 from pdf_ocr import process_single_page_ocr_robust as process_single_page_ocr
+from comparison_utils import compare_ocr_with_reference
 
 
 
@@ -175,14 +192,14 @@ def run_ocr_process(job_id: str, files: List[Path]):
                         # 2. Process Page 2..N in Parallel
                         if total_pages > 1:
                             print(f"🚀 [API] Parallelizing pages 2-{total_pages}...")
-                            from concurrent.futures import ProcessPoolExecutor, as_completed
+                            from concurrent.futures import ThreadPoolExecutor, as_completed
                             import multiprocessing
                             
-                            max_workers = min(total_pages - 1, multiprocessing.cpu_count()) 
+                            max_workers = min(total_pages - 1, multiprocessing.cpu_count() * 2) 
                             # Safe limit
                             if max_workers < 1: max_workers = 1
                             
-                            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                                 future_to_page = {
                                     executor.submit(
                                         process_single_page_ocr, 
@@ -409,6 +426,74 @@ async def get_results(job_id: str):
         results=results
     )
 
+@app.post("/api/ocr/compare")
+async def compare_documents(
+    reference_file: UploadFile = File(...),
+    document_file: UploadFile = File(...)
+):
+    """
+    Compare an uploaded document (PDF/Image) against a Reference File (Excel/CSV).
+    Performs OCR on document and compares with Reference.
+    """
+    temp_dir = UPLOAD_DIR / f"temp_compare_{uuid.uuid4()}"
+    temp_dir.mkdir(exist_ok=True)
+    
+    try:
+        # 1. Save Files
+        ref_path = temp_dir / reference_file.filename
+        doc_path = temp_dir / document_file.filename
+        
+        with open(ref_path, "wb") as f:
+            shutil.copyfileobj(reference_file.file, f)
+        with open(doc_path, "wb") as f:
+            shutil.copyfileobj(document_file.file, f)
+            
+        # 2. Run OCR on Document (Synchronous for now, assuming 1 file)
+        # Determine type
+        extracted_data = {}
+        is_pdf = doc_path.suffix.lower() == '.pdf'
+        
+        if is_pdf:
+            import fitz
+            doc = fitz.open(doc_path)
+            # Just process first page for now for comparison, or merge if multi-page?
+            # User requirement implies "A document". Let's try page 1 or merge all.
+            # For robustness, let's just do page 1 as it usually contains the summary/cert details.
+            # TODO: Add multi-page support if needed.
+            
+            # Use Robust OCR
+            res = process_single_page_ocr(str(doc_path), 1, output_dir=temp_dir)
+            if res and 'extracted_fields' in res:
+                extracted_data = res['extracted_fields']
+            
+            doc.close()
+            
+        else:
+            # Image
+            res = process_single_image_ocr(str(doc_path), output_dir=temp_dir)
+            if res and 'extracted_fields' in res:
+                extracted_data = res['extracted_fields']
+        
+        if not extracted_data:
+             return JSONResponse(status_code=400, content={"error": "OCR failed to extract data from document"})
+
+        # 3. Validation / Comparison
+        comparison_result = compare_ocr_with_reference(extracted_data, str(ref_path))
+        
+        # 4. Cleanup
+        shutil.rmtree(temp_dir)
+        
+        return {
+            "status": "success",
+            "ocr_data": extracted_data,
+            "comparison": comparison_result
+        }
+
+    except Exception as e:
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.delete("/api/ocr/job/{job_id}")
 async def delete_job(job_id: str):
     """Delete a job and its files"""
@@ -428,6 +513,72 @@ async def delete_job(job_id: str):
     del jobs[job_id]
     
     return {"message": "Job deleted successfully"}
+
+@app.get("/api/ocr/export/{job_id}")
+async def export_results(job_id: str, format: str = "csv"):
+    """
+    Export OCR results to CSV or Excel.
+    """
+    data_to_export = []
+    
+    # 1. Try filesystem (Standard OCR)
+    results_path = RESULTS_DIR / job_id / "results.json"
+    if results_path.exists():
+        try:
+             with open(results_path, 'r') as f:
+                 raw = json.load(f)
+                 # Unpack if it's wrapped in structure
+                 if isinstance(raw, list): data_to_export = raw
+                 elif isinstance(raw, dict) and "results" in raw: data_to_export = raw["results"]
+                 elif isinstance(raw, dict) and "ocr_data" in raw: data_to_export = raw["ocr_data"] 
+        except:
+            pass
+            
+    # 2. If valid data, export
+    if not data_to_export:
+        raise HTTPException(status_code=404, detail="Job results not found or empty")
+
+    # Normalize
+    df = pd.DataFrame(data_to_export)
+    
+    # USER REQUEST: Add spacing (blank row) between every page/record for better readability
+    # Method: Create a new index with gaps, or just reconstruct the list
+    if not df.empty:
+        # Create a list interleaved with empty rows
+        interleaved = []
+        empty_row = {col: "" for col in df.columns}
+        
+        for _, row in df.iterrows():
+            interleaved.append(row.to_dict())
+            interleaved.append(empty_row) # Add blank row
+            
+        # Remove the very last empty row if desired, or keep it. keeping for consistency
+        df = pd.DataFrame(interleaved)
+    
+    # Clean up column names 
+    df.columns = [str(c).replace('_', ' ').title() for c in df.columns]
+
+    stream = BytesIO()
+    
+    if format.lower() == 'xlsx':
+        # Excel
+        with pd.ExcelWriter(stream, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='OCR Data')
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"ocr_results_{job_id}.xlsx"
+    else:
+        # CSV
+        df.to_csv(stream, index=False)
+        media_type = "text/csv"
+        filename = f"ocr_results_{job_id}.csv"
+        
+    stream.seek(0)
+    
+    return StreamingResponse(
+        stream, 
+        media_type=media_type, 
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 if __name__ == "__main__":
     uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
